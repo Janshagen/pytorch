@@ -181,11 +181,11 @@ def gameOver():
 
 def main() -> None:
     while True:
-        clock.tick(10)
-        draw(screen, horizontal_lines, vertical_lines, players, wall)
-
         if resolveEvents(screen, players, wall, horizontal_lines, vertical_lines, tag_index):
             next_player(players, wall)
+            
+        clock.tick(10)
+        draw(screen, horizontal_lines, vertical_lines, players, wall)
             
         if players[-1].winner(GRIDSIZE):
             gameOver()
