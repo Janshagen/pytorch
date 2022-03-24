@@ -3,6 +3,7 @@ import sys
 
 
 class Player:
+    # moves in form ((row, col), (linerow to check, linecol to check))
     MOVES = {
         pygame.K_UP: ((-1, 0), (0, 0)),
         pygame.K_DOWN: ((1, 0), (1, 0)),

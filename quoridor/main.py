@@ -166,25 +166,29 @@ def draw(screen, horizontal_lines, vertical_lines, players, wall) -> None:
     wall.move(GRIDSIZE, WIDTH)
     wall.show(screen, WIDTH)
     pygame.display.flip()
-
+    
+    
+def gameOver():
+    while True:
+        win = font.render("Winner", True, players[-1].color)
+        screen.blit(win, (205, 160))
+        pygame.display.flip()
+        for event_ in pygame.event.get():
+            if event_.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+        
 
 def main() -> None:
-    winner = False
     while True:
-        if winner:
-            win = font.render("Winner", True, players[-1].color)
-            screen.blit(win, (205, 160))
-
         clock.tick(10)
         draw(screen, horizontal_lines, vertical_lines, players, wall)
 
-        if resolveEvents(
-            screen, players, wall, horizontal_lines, vertical_lines, tag_index
-        ):
+        if resolveEvents(screen, players, wall, horizontal_lines, vertical_lines, tag_index):
             next_player(players, wall)
-
-        if players[0].winner(GRIDSIZE):
-            winner = True
+            
+        if players[-1].winner(GRIDSIZE):
+            gameOver()
 
         pygame.event.pump()
 
@@ -205,6 +209,5 @@ if __name__ == "__main__":
         font,
         clock,
     ) = initializeGame()
-    # moves in form (row, col, linerow to check, linecol to check)
 
     main()
