@@ -5,8 +5,8 @@ class Line:
     def __init__(self, r, c, orientation):
         self.r = r
         self.c = c
-        self.occ = False
         self.orientation = orientation
+        self.occ = False
         self.color = (255, 255, 255)
         self.tag = 0
 
@@ -23,7 +23,7 @@ class Line:
             else:
                 pygame.draw.line(display, self.color, (self.c * w, self.r * w), ((self.c + 1) * w, self.r * w))
 
-    def paint(self, color, tag):
+    def place(self, color, tag):
         """Passes the attributes of the wall to the line."""
         if not self.occ:
             self.occ = True

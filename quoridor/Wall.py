@@ -7,6 +7,7 @@ class Wall:
         self.c = 0
         self.orientation = 'horizontal'
         self.color = color
+        self.tag = 1
 
     def show(self, display, w):
         """Draws the wall"""
