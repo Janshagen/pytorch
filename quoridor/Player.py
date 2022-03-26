@@ -1,6 +1,44 @@
 import pygame
 import sys
 
+class Node:
+     
+    def __init__(self, data):
+        self.data = data
+        self.next = None
+ 
+
+class Queue:
+     
+    def __init__(self):
+        self.front = self.rear = None
+ 
+    def isEmpty(self):
+        return self.front == None
+     
+    # Method to add an item to the queue
+    def EnQueue(self, item):
+        temp = Node(item)
+         
+        if self.rear == None:
+            self.front = self.rear = temp
+            return
+        self.rear.next = temp
+        self.rear = temp
+ 
+    # Method to remove an item from queue
+    def DeQueue(self):
+         
+        if self.isEmpty():
+            return
+        temp = self.front
+        self.front = temp.next
+ 
+        if(self.front == None):
+            self.rear = None
+            
+        return temp.data
+ 
 
 class Player:
     # moves in form ((row, col), (linerow to check, linecol to check))
@@ -19,7 +57,7 @@ class Player:
 
     def show(self, display, w) -> None:
         pygame.draw.circle(
-            display, self.color, (self.c * w + w // 2, self.r * w + w // 2), w // 2 - 5
+            display, self.color, (self.c * w + w // 2, self.r * w + w // 2), w // 2 - 8
         )
 
     def move(self, key, primaryLines, secondaryLines, players, w, display) -> bool:
@@ -76,9 +114,9 @@ class Player:
                 availableMoves.append(key)
                 pygame.draw.circle(
                     display,
-                    (255, 140, 0),
+                    (255, 165, 0),
                     ((self.c + move[1]) * w + w // 2, (self.r + move[0]) * w + w // 2),
-                    w // 2 - 5,
+                    w // 2 - 8,
                 )
         if not availableMoves:
             return (0, 0)
@@ -94,14 +132,30 @@ class Player:
                 if event.type == pygame.KEYDOWN and event.key in availableMoves:
                     return self.MOVES[event.key][0]
 
-    def winner(self, gridsize) -> bool:
+    def possibleFinish(self, vertical_lines, horizontal_lines, gridsize) -> bool:
+        nextPos = Queue()
+        triedPos = set()
+        currentPos = (self.r, self.c)
+        nextPos.EnQueue(currentPos)
+        triedPos.add(currentPos)
+        while not nextPos.isEmpty():
+            currentPos = nextPos.DeQueue()
+            for _, (key, v) in enumerate(self.MOVES.items()):
+                move, lineCheck = v
+                lines = vertical_lines if key in (pygame.K_LEFT, pygame.K_RIGHT) else horizontal_lines
+                newPos = (currentPos[0] + move[0], currentPos[1] + move[1])
+                if not lines[currentPos[0] + lineCheck[0]][currentPos[1] + lineCheck[1]].occ and newPos not in triedPos:
+                    if self.winner2(newPos):
+                        return True
+                    nextPos.EnQueue(newPos)
+                    triedPos.add(newPos)
+        
+        return False
+    
+    def winner2(self, pos) -> bool:
         """Checks if the player has won depending on where the goal is for that player."""
-        direction, num = self.goal[:]
-        if direction == "r" and int(num) == 0 and self.r == 0:
-            return True
-        elif direction == "r" and int(num) == 1 and self.r == gridsize - 1:
-            return True
-        elif direction == "c" and int(num) == 0 and self.c == 0:
-            return True
-        elif direction == "c" and int(num) == 1 and self.c == gridsize - 1:
-            return True
+        return pos in self.goal
+        
+    def winner(self) -> bool:
+        """Checks if the player has won depending on where the goal is for that player."""
+        return (self.r, self.c) in self.goal

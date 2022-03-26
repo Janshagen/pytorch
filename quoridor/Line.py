@@ -7,7 +7,7 @@ class Line:
         self.c = c
         self.orientation = orientation
         self.occ = False
-        self.color = (255, 255, 255)
+        self.color = (230, 230, 230)
         self.tag = 0
 
     def show(self, display, w):
@@ -29,3 +29,9 @@ class Line:
             self.occ = True
             self.color = color
             self.tag = tag
+            
+    def unplace(self):
+        """Passes the attributes of the wall to the line."""
+        self.occ = False
+        self.color = (255, 255, 255)
+        self.tag = 0

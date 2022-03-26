@@ -22,21 +22,21 @@ def initializePlayers():
     # Initializes the players
     if number_of_players == 2:
         players = [
-            Player((0, 0, 255), GRIDSIZE - 1, MIDDLE, "r0"),
-            Player((255, 0, 0), 0, MIDDLE, "r1"),
+            Player((138,43,226), GRIDSIZE - 1, MIDDLE, [(0, col) for col in range(GRIDSIZE)]),
+            Player((220,20,60), 0, MIDDLE, [(GRIDSIZE-1, col) for col in range(GRIDSIZE)]),
         ]
     elif number_of_players == 3:
         players = [
-            Player((0, 0, 255), GRIDSIZE - 1, MIDDLE, "r0"),
-            Player((255, 0, 0), 0, MIDDLE, "r1"),
-            Player((0, 255, 0), MIDDLE, 0, "c1"),
+            Player((138,43,226), GRIDSIZE - 1, MIDDLE, [(0, col) for col in range(GRIDSIZE)]),
+            Player((220,20,60), 0, MIDDLE, [(GRIDSIZE-1, col) for col in range(GRIDSIZE)]),
+            Player((235,200,0), MIDDLE, 0, [(row, GRIDSIZE-1) for row in range(GRIDSIZE)]),
         ]
     elif number_of_players == 4:
         players = [
-            Player((0, 0, 255), GRIDSIZE - 1, MIDDLE, "r0"),
-            Player((255, 0, 0), 0, MIDDLE, "r1"),
-            Player((0, 255, 0), MIDDLE, 0, "c1"),
-            Player((255, 255, 0), MIDDLE, GRIDSIZE - 1, "c0"),
+            Player((138,43,226), GRIDSIZE - 1, MIDDLE, [(0, col) for col in range(GRIDSIZE)]),
+            Player((220,20,60), 0, MIDDLE, [(GRIDSIZE-1, col) for col in range(GRIDSIZE)]),
+            Player((235,200,0), MIDDLE, 0, [(row, GRIDSIZE-1) for row in range(GRIDSIZE)]),
+            Player((50,205,50), MIDDLE, GRIDSIZE - 1, [(row, 0) for row in range(GRIDSIZE)]),
         ]
 
     return players
@@ -69,7 +69,6 @@ def initializeGameBoard():
 def initializeGame():
     players = initializePlayers()
     wall = Wall(players[0].color)
-    tag_index = 1
     horizontal_lines, vertical_lines = initializeGameBoard()
 
     # Initializing screen, font, clock and the grids containing the lines
@@ -82,16 +81,13 @@ def initializeGame():
         horizontal_lines,
         vertical_lines,
         wall,
-        tag_index,
         screen,
         font,
         clock,
     )
 
 
-def resolveEvents(
-    display, players, wall, horizontal_lines, vertical_lines, tag_index
-) -> bool:
+def resolveEvents(display, players, wall, horizontal_lines, vertical_lines) -> bool:
     """Checks the event queue for mouse press or button press. Mouse press will place a wall if that space is available
     for a wall, i.e. not on top of another wall. Space bar will rotate the wall.
     The arrow keys will move the current player. And pressing the exit button will close the window."""
@@ -101,7 +97,7 @@ def resolveEvents(
             sys.exit()
 
         if event_.type == pygame.MOUSEBUTTONDOWN:
-            return place_wall(wall, horizontal_lines, vertical_lines, tag_index)
+            return place_wall(wall, horizontal_lines, vertical_lines)
 
         elif event_.type == pygame.KEYDOWN:
             key = event_.key
@@ -119,7 +115,7 @@ def resolveEvents(
                 )
 
 
-def place_wall(wall, horizontal_lines, vertical_lines, tag_index) -> bool:
+def place_wall(wall, horizontal_lines, vertical_lines) -> bool:
     if wall.orientation == "horizontal":
         primaryLines, secondaryLines = horizontal_lines, vertical_lines
         dir = (0, -1)
@@ -138,6 +134,12 @@ def place_wall(wall, horizontal_lines, vertical_lines, tag_index) -> bool:
     ):
         primaryLines[wall.r][wall.c].place(wall.color, wall.tag)
         primaryLines[wall.r + dir[0]][wall.c + dir[1]].place(wall.color, wall.tag)
+        for player in players:
+            if not player.possibleFinish(vertical_lines, horizontal_lines, GRIDSIZE):
+                primaryLines[wall.r][wall.c].unplace()
+                primaryLines[wall.r + dir[0]][wall.c + dir[1]].unplace()
+                return False
+        
         wall.tag += 1
         return True
 
@@ -150,7 +152,7 @@ def next_player(players, wall) -> None:
 
 
 def draw(screen, horizontal_lines, vertical_lines, players, wall) -> None:
-    screen.fill((0, 0, 0))
+    screen.fill((190, 190, 190))
 
     for row in horizontal_lines:
         for line in row:
@@ -166,8 +168,8 @@ def draw(screen, horizontal_lines, vertical_lines, players, wall) -> None:
     wall.move(GRIDSIZE, WIDTH)
     wall.show(screen, WIDTH)
     pygame.display.flip()
-    
-    
+
+
 def gameOver():
     while True:
         win = font.render("Winner", True, players[-1].color)
@@ -177,17 +179,17 @@ def gameOver():
             if event_.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
-        
+
 
 def main() -> None:
     while True:
-        if resolveEvents(screen, players, wall, horizontal_lines, vertical_lines, tag_index):
+        if resolveEvents(screen, players, wall, horizontal_lines, vertical_lines):
             next_player(players, wall)
-            
+
         clock.tick(10)
         draw(screen, horizontal_lines, vertical_lines, players, wall)
-            
-        if players[-1].winner(GRIDSIZE):
+
+        if players[-1].winner():
             gameOver()
 
         pygame.event.pump()
@@ -204,7 +206,6 @@ if __name__ == "__main__":
         horizontal_lines,
         vertical_lines,
         wall,
-        tag_index,
         screen,
         font,
         clock,
