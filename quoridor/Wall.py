@@ -12,9 +12,11 @@ class Wall:
     def show(self, display, w):
         """Draws the wall"""
         if self.orientation == 'vertical':
-            pygame.draw.rect(display, self.color, pygame.Rect(self.c * w - 3, (self.r - 1) * w, 6, 2 * w))
+            pygame.draw.rect(display, self.color, pygame.Rect(
+                self.c * w - 3, (self.r - 1) * w, 6, 2 * w))
         elif self.orientation == 'horizontal':
-            pygame.draw.rect(display, self.color, pygame.Rect((self.c - 1) * w, self.r * w - 3, 2 * w, 6))
+            pygame.draw.rect(display, self.color, pygame.Rect(
+                (self.c - 1) * w, self.r * w - 3, 2 * w, 6))
 
     def move(self, gridsize, w):
         """Updates the wall according to the mouse's position"""

@@ -1,7 +1,8 @@
 from Player import Player
 from Wall import Wall
 from Line import Line
-import pygame, sys
+import pygame
+import sys
 
 
 def findPlayers():
@@ -22,21 +23,30 @@ def initializePlayers():
     # Initializes the players
     if number_of_players == 2:
         players = [
-            Player((138,43,226), GRIDSIZE - 1, MIDDLE, [(0, col) for col in range(GRIDSIZE)]),
-            Player((220,20,60), 0, MIDDLE, [(GRIDSIZE-1, col) for col in range(GRIDSIZE)]),
+            Player((138, 43, 226), GRIDSIZE - 1, MIDDLE,
+                   [(0, col) for col in range(GRIDSIZE)]),
+            Player((220, 20, 60), 0, MIDDLE, [
+                   (GRIDSIZE-1, col) for col in range(GRIDSIZE)]),
         ]
     elif number_of_players == 3:
         players = [
-            Player((138,43,226), GRIDSIZE - 1, MIDDLE, [(0, col) for col in range(GRIDSIZE)]),
-            Player((220,20,60), 0, MIDDLE, [(GRIDSIZE-1, col) for col in range(GRIDSIZE)]),
-            Player((235,200,0), MIDDLE, 0, [(row, GRIDSIZE-1) for row in range(GRIDSIZE)]),
+            Player((138, 43, 226), GRIDSIZE - 1, MIDDLE,
+                   [(0, col) for col in range(GRIDSIZE)]),
+            Player((220, 20, 60), 0, MIDDLE, [
+                   (GRIDSIZE-1, col) for col in range(GRIDSIZE)]),
+            Player((235, 200, 0), MIDDLE, 0, [
+                   (row, GRIDSIZE-1) for row in range(GRIDSIZE)]),
         ]
     elif number_of_players == 4:
         players = [
-            Player((138,43,226), GRIDSIZE - 1, MIDDLE, [(0, col) for col in range(GRIDSIZE)]),
-            Player((220,20,60), 0, MIDDLE, [(GRIDSIZE-1, col) for col in range(GRIDSIZE)]),
-            Player((235,200,0), MIDDLE, 0, [(row, GRIDSIZE-1) for row in range(GRIDSIZE)]),
-            Player((50,205,50), MIDDLE, GRIDSIZE - 1, [(row, 0) for row in range(GRIDSIZE)]),
+            Player((138, 43, 226), GRIDSIZE - 1, MIDDLE,
+                   [(0, col) for col in range(GRIDSIZE)]),
+            Player((220, 20, 60), 0, MIDDLE, [
+                   (GRIDSIZE-1, col) for col in range(GRIDSIZE)]),
+            Player((235, 200, 0), MIDDLE, 0, [
+                   (row, GRIDSIZE-1) for row in range(GRIDSIZE)]),
+            Player((50, 205, 50), MIDDLE, GRIDSIZE - 1,
+                   [(row, 0) for row in range(GRIDSIZE)]),
         ]
 
     return players
@@ -73,7 +83,8 @@ def initializeGame():
 
     # Initializing screen, font, clock and the grids containing the lines
     pygame.init()
-    screen = pygame.display.set_mode((GRIDSIZE * WIDTH + 1, GRIDSIZE * WIDTH + 1))
+    screen = pygame.display.set_mode(
+        (GRIDSIZE * WIDTH + 1, GRIDSIZE * WIDTH + 1))
     font = pygame.font.Font(None, 128)
     clock = pygame.time.Clock()
     return (
@@ -133,13 +144,14 @@ def place_wall(wall, horizontal_lines, vertical_lines) -> bool:
         )
     ):
         primaryLines[wall.r][wall.c].place(wall.color, wall.tag)
-        primaryLines[wall.r + dir[0]][wall.c + dir[1]].place(wall.color, wall.tag)
+        primaryLines[wall.r + dir[0]][wall.c +
+                                      dir[1]].place(wall.color, wall.tag)
         for player in players:
             if not player.possibleFinish(vertical_lines, horizontal_lines, GRIDSIZE):
                 primaryLines[wall.r][wall.c].unplace()
                 primaryLines[wall.r + dir[0]][wall.c + dir[1]].unplace()
                 return False
-        
+
         wall.tag += 1
         return True
 
@@ -173,7 +185,7 @@ def draw(screen, horizontal_lines, vertical_lines, players, wall) -> None:
 def gameOver():
     while True:
         win = font.render("Winner", True, players[-1].color)
-        screen.blit(win, (205, 160))
+        screen.blit(win, (GRIDSIZE * WIDTH * 0.333, GRIDSIZE * WIDTH * 0.24))
         pygame.display.flip()
         for event_ in pygame.event.get():
             if event_.type == pygame.QUIT:
@@ -199,7 +211,7 @@ if __name__ == "__main__":
     # variables
     GRIDSIZE = 9  # should be odd
     MIDDLE = int((GRIDSIZE - 1) / 2)
-    WIDTH = 80
+    WIDTH = 100
 
     (
         players,

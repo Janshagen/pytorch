@@ -14,14 +14,18 @@ class Line:
         """Draws the lines, depending on what orientation they have and if there is a wall or not."""
         if self.orientation == 'vertical':
             if self.occ:
-                pygame.draw.rect(display, self.color, pygame.Rect(self.c * w - 3, self.r * w, 6, w))
+                pygame.draw.rect(display, self.color, pygame.Rect(
+                    self.c * w - 3, self.r * w, 6, w))
             else:
-                pygame.draw.line(display, self.color, (self.c * w, self.r * w), (self.c * w, (self.r + 1) * w))
+                pygame.draw.line(
+                    display, self.color, (self.c * w, self.r * w), (self.c * w, (self.r + 1) * w))
         elif self.orientation == 'horizontal':
             if self.occ:
-                pygame.draw.rect(display, self.color, pygame.Rect(self.c * w, self.r * w - 3, w, 6))
+                pygame.draw.rect(display, self.color, pygame.Rect(
+                    self.c * w, self.r * w - 3, w, 6))
             else:
-                pygame.draw.line(display, self.color, (self.c * w, self.r * w), ((self.c + 1) * w, self.r * w))
+                pygame.draw.line(
+                    display, self.color, (self.c * w, self.r * w), ((self.c + 1) * w, self.r * w))
 
     def place(self, color, tag):
         """Passes the attributes of the wall to the line."""
@@ -29,7 +33,7 @@ class Line:
             self.occ = True
             self.color = color
             self.tag = tag
-            
+
     def unplace(self):
         """Passes the attributes of the wall to the line."""
         self.occ = False
