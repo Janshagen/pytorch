@@ -57,6 +57,29 @@ def findWalls(players, horizontal_lines, vertical_lines):
     pass
 
 
+def place_wall(players, wall, board) -> bool:
+    dir = (0, 1) if wall.orientation == "horizontal" else (1, 0)
+    row = wall.r
+    col = wall.c
+
+    if not board[row][col] and not board[row - dir[0]][col - dir[1]] and not board[row + dir[0]][col + dir[1]]:
+        board[row][col] = 5
+        board[row - dir[0]][col - dir[1]] = 5
+        board[row + dir[0]][col + dir[1]] = 5
+
+        for player in players:
+            if not player.possibleFinish(board):
+                board[row][col] = 0
+                board[row - dir[0]][col - dir[1]] = 0
+                board[row + dir[0]][col + dir[1]] = 0
+                return False
+
+        players[0].walls.append((row, col))
+        players[0].walls.append((row + dir[0], col + dir[1]))
+        players[0].walls.append((row - dir[0], col - dir[1]))
+        return True
+
+
 def randomMove(moves):
     return random.choice(moves)
 

@@ -41,13 +41,17 @@ class Queue:
         return temp.data
 
 
+def even(x: int):
+    return not (x % 2)
+
+
 class Player:
     # moves in form ((row, col), (linerow to check, linecol to check))
     MOVES = {
-        pygame.K_UP: ((-1, 0), (0, 0)),
-        pygame.K_DOWN: ((1, 0), (1, 0)),
-        pygame.K_RIGHT: ((0, 1), (0, 1)),
-        pygame.K_LEFT: ((0, -1), (0, 0)),
+        pygame.K_UP: (-1, 0),
+        pygame.K_DOWN: (1, 0),
+        pygame.K_RIGHT: (0, 1),
+        pygame.K_LEFT: (0, -1)
     }
 
     def __init__(self, color, r, c, goal) -> None:
@@ -55,52 +59,60 @@ class Player:
         self.r = r
         self.c = c
         self.goal = goal
+        self.walls = []
 
     def show(self, display, w) -> None:
+        w = w*9/18
         pygame.draw.circle(
-            display, self.color, (self.c * w + w // 2,
-                                  self.r * w + w // 2), w // 2 - 10
-        )
+            display, self.color, (self.c * w, self.r * w), 0.6*w)
 
-    def move(self, key, primaryLines, secondaryLines, players, w, display) -> bool:
+        for row, col in self.walls:
+            if not even(row) and even(col):
+                pygame.draw.line(display, self.color,
+                                 (col*w, (row-1)*w), (col*w, (row+1)*w), width=5)
+            elif even(row) and not even(col):
+                pygame.draw.line(display, self.color,
+                                 ((col-1)*w, row*w), ((col+1)*w, row*w), width=5)
+
+    def move(self, key, board, players, w, display) -> bool:
         """Moves the player. If the position is occupied by an opponent
         the player is moved forward then left or right
         depending on the choice of the player. Returns True if move is successfull"""
-        move, lineCheck = self.MOVES[key]
+        move = self.MOVES[key]
         opponents = [(player.r, player.c) for player in players[1:]]
 
         # move blocked by wall
-        if not primaryLines[self.r + lineCheck[0]][self.c + lineCheck[1]].occ:
-            self.r += move[0]
-            self.c += move[1]
+        if not board[self.r + move[0]][self.c + move[1]]:
+            self.r += move[0]*2
+            self.c += move[1]*2
 
             # opponent in way
             if opponents.count((self.r, self.c)):
                 # if jump blocked by player or wall: choose wich direction to jump.
                 # otherwise jump in same direction as previous move
-                if primaryLines[self.r + lineCheck[0]][
-                    self.c + lineCheck[1]
-                ].occ or opponents.count((self.r + move[0], self.c + move[1])):
+                if board[self.r + move[0]][
+                    self.c + move[1]
+                ] or opponents.count((self.r + move[0]*2, self.c + move[1]*2)):
 
                     # finds possible moves to make
                     newMove = self.chooseMove(
-                        key, secondaryLines, opponents, w, display
+                        key, board, opponents, w, display
                     )
                     # if no moves exists, move bakc and return False
                     if newMove == (0, 0):
-                        self.r -= move[0]
-                        self.c -= move[1]
+                        self.r -= move[0]*2
+                        self.c -= move[1]*2
                         return False
-                    self.r += newMove[0]
-                    self.c += newMove[1]
+                    self.r += newMove[0]*2
+                    self.c += newMove[1]*2
                     return True
 
-                self.r += move[0]
-                self.c += move[1]
+                self.r += move[0]*2
+                self.c += move[1]*2
 
             return True
 
-    def chooseMove(self, oldKey, lines, opponents, w, display) -> tuple:
+    def chooseMove(self, oldKey, board, opponents, w, display) -> tuple:
         movesToCheck = (
             (pygame.K_RIGHT, pygame.K_LEFT)
             if oldKey in (pygame.K_UP, pygame.K_DOWN)
@@ -109,18 +121,19 @@ class Player:
 
         availableMoves = []
         for key in movesToCheck:
-            move, lineCheck = self.MOVES[key]
-            if not lines[self.r + lineCheck[0]][
-                self.c + lineCheck[1]
-            ].occ and not opponents.count((self.r + move[0], self.c + move[1])):
+            move = self.MOVES[key]
+            if not board[self.r + move[0]][
+                self.c + move[1]
+            ] and not opponents.count((self.r + move[0]*2, self.c + move[1]*2)):
                 availableMoves.append(key)
                 pygame.draw.circle(
                     display,
                     (255, 165, 0),
-                    ((self.c + move[1]) * w + w // 2,
-                     (self.r + move[0]) * w + w // 2),
-                    w // 2 - 10,
+                    ((self.c + move[1]*2) * w / 2,
+                     (self.r + move[0]*2) * w / 2),
+                    0.3*w,
                 )
+
         if not availableMoves:
             return (0, 0)
 
@@ -133,9 +146,9 @@ class Player:
                     sys.exit()
 
                 if event.type == pygame.KEYDOWN and event.key in availableMoves:
-                    return self.MOVES[event.key][0]
+                    return self.MOVES[event.key]
 
-    def possibleFinish(self, vertical_lines, horizontal_lines, gridsize) -> bool:
+    def possibleFinish(self, board) -> bool:
         nextPos = Queue()
         triedPos = set()
         currentPos = (self.r, self.c)
@@ -143,12 +156,9 @@ class Player:
         triedPos.add(currentPos)
         while not nextPos.isEmpty():
             currentPos = nextPos.DeQueue()
-            for _, (key, v) in enumerate(self.MOVES.items()):
-                move, lineCheck = v
-                lines = vertical_lines if key in (
-                    pygame.K_LEFT, pygame.K_RIGHT) else horizontal_lines
-                newPos = (currentPos[0] + move[0], currentPos[1] + move[1])
-                if not lines[currentPos[0] + lineCheck[0]][currentPos[1] + lineCheck[1]].occ and newPos not in triedPos:
+            for _, (_, move) in enumerate(self.MOVES.items()):
+                newPos = (currentPos[0] + move[0]*2, currentPos[1] + move[1]*2)
+                if not board[currentPos[0] + move[0]][currentPos[1] + move[1]] and newPos not in triedPos:
                     if self.winner2(newPos):
                         return True
                     nextPos.EnQueue(newPos)

@@ -7,22 +7,23 @@ class Wall:
         self.c = 0
         self.orientation = 'horizontal'
         self.color = color
-        self.tag = 1
 
     def show(self, display, w):
         """Draws the wall"""
         if self.orientation == 'vertical':
-            pygame.draw.rect(display, self.color, pygame.Rect(
-                self.c * w - 3, (self.r - 1) * w, 6, 2 * w))
+            pygame.draw.line(display, self.color, (self.c*w/2,
+                             (self.r-2)*w/2), (self.c*w/2, (self.r+2)*w/2), width=5)
         elif self.orientation == 'horizontal':
-            pygame.draw.rect(display, self.color, pygame.Rect(
-                (self.c - 1) * w, self.r * w - 3, 2 * w, 6))
+            pygame.draw.line(display, self.color, ((self.c-2)*w/2,
+                             self.r*w/2), ((self.c+2)*w/2, self.r*w/2), width=5)
 
-    def move(self, gridsize, w):
+    def move(self, MATRIX_SIZE, w):
         """Updates the wall according to the mouse's position"""
         pos = pygame.mouse.get_pos()
-        self.c = max(min(round(pos[0] / w), gridsize - 1), 1)
-        self.r = max(min(round(pos[1] / w), gridsize - 1), 1)
+        self.c = max(min(round(pos[0]*2 / w), MATRIX_SIZE), 0)
+        self.c = self.c if not self.c % 2 else self.c + 1
+        self.r = max(min(round(pos[1]*2 / w), MATRIX_SIZE), 0)
+        self.r = self.r if not self.r % 2 else self.r + 1
 
     def flip(self):
         """Flips the wall"""
