@@ -1,60 +1,79 @@
-import pygame
 import random
+import numpy as np
 
-# To make an MCTS AI
 
-
-def availableMoves(players, horizontal_lines, vertical_lines):
+def availableMoves(board, players, player, MATRIX_SIZE):
     walks, placeWalls = [], []
-    walks = findWalks(players, horizontal_lines, vertical_lines)
-    placeWalls = findWalls(players, horizontal_lines, vertical_lines)
+    walks = findWalkMoves(board, player)
+    placeWalls = findWallMoves(board, players, MATRIX_SIZE)
 
-    for walk in walks:
-        placeWalls.append(walk)
+    placeWalls.extend(walks)
     return placeWalls
 
 
-def findWalks(players, horizontal_lines, vertical_lines) -> list:
+def findWalkMoves(board, player) -> list:
     walks = []
-    opponents = [(player.r, player.c) for player in players[1:]]
+    currentPos = locatePlayer(board, player)
 
-    currentPos = (players[0].r, players[0].c)
-    for _, (key, v) in enumerate(players[0].MOVES.items()):
-        move, lineCheck = v
-
-        primaryLines, secondaryLines = findLines(
-            key, horizontal_lines, vertical_lines)
-        newPos = (currentPos[0] + move[0], currentPos[1] + move[1])
-        if primaryLines[currentPos[0] + lineCheck[0]][currentPos[1] + lineCheck[1]].occ:
+    for move in ((0, 1), (1, 0), (-1, 0), (0, -1)):
+        newPos = (currentPos[0] + move[0]*2, currentPos[1] + move[1]*2)
+        if board[currentPos[0] + move[0]][currentPos[1] + move[1]]:
             continue
 
-        elif opponents.count(newPos):
-            if primaryLines[newPos[0] + lineCheck[0]][newPos[1] + lineCheck[1]].occ or opponents.count((newPos[0] + move[0], newPos[1] + move[1])):
-                # kolla sidorna
-                movesToCheck = ((pygame.K_RIGHT, pygame.K_LEFT) if key in (
-                    pygame.K_UP, pygame.K_DOWN) else (pygame.K_UP, pygame.K_DOWN))
-                for key in movesToCheck:
-                    move, lineCheck = players[0].MOVES[key]
-                    if not secondaryLines[newPos[0] + lineCheck[0]][newPos[1] + lineCheck[1]].occ and not opponents.count((newPos[0] + move[0], newPos[1] + move[1])):
-                        walks.append(
-                            (currentPos, (newPos[0] + move[0], newPos[1] + move[1])))
-            else:
-                walks.append(
-                    (currentPos, (newPos[0] + move[0], newPos[1] + move[1])))
+        if not board[newPos[0]][newPos[1]]:
+            walks.append(('walk', (currentPos, newPos)))
+            continue
 
-        else:
-            walks.append((currentPos, newPos))
-        return walks
+        if not board[newPos[0] + move[0]][newPos[1] + move[1]] and not board[newPos[0] + move[0]*2][newPos[1] + move[1]*2]:
+            walks.append(('walk',
+                          (currentPos, (newPos[0] + move[0]*2, newPos[1] + move[1]*2))))
+            continue
 
+        # kolla sidorna
+        movesToCheck = ((-1, 0), (1, 0)) if move in ((0, 1),
+                                                     (0, -1)) else ((0, 1), (0, -1))
+        for newMove in movesToCheck:
+            if not board[newPos[0] + newMove[0]][newPos[1] + newMove[1]] and not board[newPos[0] + newMove[0]*2][newPos[1] + newMove[1]*2]:
+                walks.append(('walk',
+                             (currentPos, (newPos[0] + newMove[0]*2, newPos[1] + newMove[1]*2))))
 
-def findLines(key, horizontal_lines, vertical_lines):
-    if key in (pygame.K_LEFT, pygame.K_RIGHT):
-        return vertical_lines, horizontal_lines
-    return horizontal_lines, vertical_lines
+    return walks
 
 
-def findWalls(players, horizontal_lines, vertical_lines):
-    pass
+def locatePlayer(board, player):
+    for i, col in enumerate(board):
+        for j, spot in enumerate(col):
+            if spot == player:
+                return (i, j)
+
+
+def findWallMoves(board, players, MATRIX_SIZE):
+    walls = []
+    for row in range(2, MATRIX_SIZE-2, 2):
+        for col in range(2, MATRIX_SIZE-2, 2):
+            if board[row][col]:
+                continue
+            for dir in ((1, 0), (0, 1)):
+                if not board[row - dir[0]][col - dir[1]] and not board[row + dir[0]][col + dir[1]] and not playerBlocked(board, players, row, col, dir):
+                    walls.append(
+                        ('wall', ((row, col), (row-dir[0], col-dir[1]), (row+dir[0], col+dir[1]))))
+    return walls
+
+
+def playerBlocked(board, players, row, col, dir) -> bool:
+    blocked = False
+    board[row][col] = 5
+    board[row - dir[0]][col - dir[1]] = 5
+    board[row + dir[0]][col + dir[1]] = 5
+    for player in players:
+        pos = locatePlayer(board, player.num)
+        if not player.possibleFinish(board, pos):
+            blocked = True
+            break
+    board[row][col] = 0
+    board[row - dir[0]][col - dir[1]] = 0
+    board[row + dir[0]][col + dir[1]] = 0
+    return blocked
 
 
 def place_wall(players, wall, board) -> bool:
@@ -68,7 +87,8 @@ def place_wall(players, wall, board) -> bool:
         board[row + dir[0]][col + dir[1]] = 5
 
         for player in players:
-            if not player.possibleFinish(board):
+            pos = locatePlayer(board, player.num)
+            if not player.possibleFinish(board, pos):
                 board[row][col] = 0
                 board[row - dir[0]][col - dir[1]] = 0
                 board[row + dir[0]][col + dir[1]] = 0
@@ -84,12 +104,27 @@ def randomMove(moves):
     return random.choice(moves)
 
 
-def makeMove(move):
-    pass
+def makeMove(board, move, player):
+    if not move:
+        return
+
+    if move[0] == 'wall':
+        for row, col in move[1]:
+            board[row][col] = 5
+    else:  # move[0] == 'walk'
+        oldPos = move[1][0]
+        newPos = move[1][1]
+        board[oldPos[0]][oldPos[1]] = 0
+        board[newPos[0]][newPos[1]] = player
 
 
-def gameEnd():
-    pass
+def gameEnd(players, currentPlayer, move):
+    if move[0] == 'wall':
+        return False
+    for player in players:
+        if player.num == currentPlayer and player.winner2(move[1][1]):
+            return True
+    return False
 
 
 def nextPlayer(players, wall) -> None:
@@ -97,3 +132,9 @@ def nextPlayer(players, wall) -> None:
     currentPlayer = players.pop(0)
     players.append(currentPlayer)
     wall.color = players[0].color
+
+
+def winner(currentPlayer):
+    if currentPlayer == 1:
+        return np.array([1, -1])
+    return np.array([-1, 1])

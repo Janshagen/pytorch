@@ -69,15 +69,15 @@ def findPlayers():
 
 
 def initializePlayers(MATRIX_SIZE):
-    number_of_players = findPlayers()
+    number_of_players = 2  # findPlayers()
 
     MIDDLE = int((MATRIX_SIZE - 1) / 2)
     # Initializes the players
     if number_of_players == 2:
         players = [
-            Player((138, 43, 226), MATRIX_SIZE - 2, MIDDLE,
+            Player(1, (138, 43, 226), MATRIX_SIZE - 2, MIDDLE,
                    [(1, col) for col in range(MATRIX_SIZE)]),
-            Player((220, 20, 60), 1, MIDDLE, [
+            Player(2, (220, 20, 60), 1, MIDDLE, [
                    (MATRIX_SIZE-2, col) for col in range(MATRIX_SIZE)]),
         ]
     elif number_of_players == 3:
@@ -104,30 +104,31 @@ def initializePlayers(MATRIX_SIZE):
     return players
 
 
-def initializeGameBoard():
+def initializeGameBoard(players, MATRIX_SIZE):
     # 0-tomt, 1-4-spelare, 5-vägg
-    board = np.zeros((19, 19))
-    for i in range(19):
+    board = np.zeros((MATRIX_SIZE, MATRIX_SIZE))
+    for i in range(MATRIX_SIZE):
         board[i][0] = 5
         board[i][-1] = 5
         board[0][i] = 5
         board[-1][i] = 5
 
+    for player in players:
+        board[player.r][player.c] = player.num
     return board
 
 
 def initializeGame(MATRIX_SIZE, GRIDSIZE, WIDTH):
     players = initializePlayers(MATRIX_SIZE)
     wall = Wall(players[0].color)
-    gameBoard = initializeGameBoard()
+    gameBoard = initializeGameBoard(players, MATRIX_SIZE)
 
     # Initializing screen, font, clock and board
     pygame.init()
     screen = pygame.display.set_mode(
         (GRIDSIZE * WIDTH + 1, GRIDSIZE * WIDTH + 1))
     font = pygame.font.Font(None, 128)
-    clock = pygame.time.Clock()
-    return players, gameBoard, wall, screen, font, clock
+    return players, gameBoard, wall, screen, font
 
 
 def gameOver(players, screen, font, GRIDSIZE, WIDTH):

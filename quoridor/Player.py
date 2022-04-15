@@ -1,5 +1,6 @@
 import pygame
 import sys
+from gameplay import makeMove
 
 
 class Node:
@@ -54,12 +55,14 @@ class Player:
         pygame.K_LEFT: (0, -1)
     }
 
-    def __init__(self, color, r, c, goal) -> None:
+    def __init__(self, num, color, r, c, goal, species='human') -> None:
         self.color = color
         self.r = r
         self.c = c
         self.goal = goal
         self.walls = []
+        self.num = num
+        self.species = species
 
     def show(self, display, w) -> None:
         w = w*9/18
@@ -80,36 +83,37 @@ class Player:
         depending on the choice of the player. Returns True if move is successfull"""
         move = self.MOVES[key]
         opponents = [(player.r, player.c) for player in players[1:]]
+        originalPos = (self.r, self.c)
 
         # move blocked by wall
         if not board[self.r + move[0]][self.c + move[1]]:
             self.r += move[0]*2
             self.c += move[1]*2
+            if not opponents.count((self.r, self.c)):
+                makeMove(
+                    board, ('walk', (originalPos, (self.r, self.c))), self.num)
+                return True
 
             # opponent in way
-            if opponents.count((self.r, self.c)):
-                # if jump blocked by player or wall: choose wich direction to jump.
-                # otherwise jump in same direction as previous move
-                if board[self.r + move[0]][
-                    self.c + move[1]
-                ] or opponents.count((self.r + move[0]*2, self.c + move[1]*2)):
-
-                    # finds possible moves to make
-                    newMove = self.chooseMove(
-                        key, board, opponents, w, display
-                    )
-                    # if no moves exists, move bakc and return False
-                    if newMove == (0, 0):
-                        self.r -= move[0]*2
-                        self.c -= move[1]*2
-                        return False
-                    self.r += newMove[0]*2
-                    self.c += newMove[1]*2
-                    return True
-
+            # jump not blocked by player or wall
+            if not board[self.r + move[0]][self.c + move[1]] and not opponents.count((self.r + move[0]*2, self.c + move[1]*2)):
                 self.r += move[0]*2
                 self.c += move[1]*2
+                makeMove(
+                    board, ('walk', (originalPos, (self.r, self.c))), self.num)
+                return True
 
+            # jump blocked by player or wall: choose direction
+            newMove = self.chooseMove(key, board, opponents, w, display)
+            # if no moves exists, move back and return False
+            if newMove == (0, 0):
+                self.r -= move[0]*2
+                self.c -= move[1]*2
+                return False
+
+            self.r += newMove[0]*2
+            self.c += newMove[1]*2
+            makeMove(board, ('walk', (originalPos, (self.r, self.c))), self.num)
             return True
 
     def chooseMove(self, oldKey, board, opponents, w, display) -> tuple:
@@ -148,15 +152,14 @@ class Player:
                 if event.type == pygame.KEYDOWN and event.key in availableMoves:
                     return self.MOVES[event.key]
 
-    def possibleFinish(self, board) -> bool:
+    def possibleFinish(self, board, currentPos) -> bool:
         nextPos = Queue()
         triedPos = set()
-        currentPos = (self.r, self.c)
         nextPos.EnQueue(currentPos)
         triedPos.add(currentPos)
         while not nextPos.isEmpty():
             currentPos = nextPos.DeQueue()
-            for _, (_, move) in enumerate(self.MOVES.items()):
+            for move in (-1, 0), (1, 0), (0, 1), (0, -1):
                 newPos = (currentPos[0] + move[0]*2, currentPos[1] + move[1]*2)
                 if not board[currentPos[0] + move[0]][currentPos[1] + move[1]] and newPos not in triedPos:
                     if self.winner2(newPos):
@@ -165,6 +168,21 @@ class Player:
                     triedPos.add(newPos)
 
         return False
+
+    def distanceToGoal(self, board, startPos) -> int:
+        nextPos = Queue()
+        triedPos = set()
+        nextPos.EnQueue((startPos, 0))
+        triedPos.add(startPos)
+        while True:
+            currentPos, steps = nextPos.DeQueue()
+            for move in (-1, 0), (1, 0), (0, 1), (0, -1):
+                newPos = (currentPos[0] + move[0]*2, currentPos[1] + move[1]*2)
+                if not board[currentPos[0] + move[0]][currentPos[1] + move[1]] and newPos not in triedPos:
+                    if self.winner2(newPos):
+                        return steps + 1
+                    nextPos.EnQueue((newPos, steps+1))
+                    triedPos.add(newPos)
 
     def winner2(self, pos) -> bool:
         """Checks if the player has won depending on where the goal is for that player."""
