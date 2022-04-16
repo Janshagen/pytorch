@@ -7,7 +7,7 @@ GRIDSIZE = 9  # should be odd
 MATRIX_SIZE = 2*GRIDSIZE+1
 WIDTH = 100
 
-SIMULATIONS = 3
+SIMULATIONS = 3000
 CUTOFF = 0
 
 
@@ -29,8 +29,11 @@ def main() -> None:
             if move[0] == 'walk':
                 player.r, player.c = move[1][1]
             else:  # move[0] == 'wall'
-                for row, col in move[1]:
-                    player.walls.append((row, col))
+                _, start, end = move[1]
+                pos = ((start[0]+end[0])/2, (start[1]+end[1])/2)
+                dir = (abs(start[0]-end[0])/2, abs(start[1]-end[1])/2)
+                player.walls.append(
+                    ((pos[0]-1.94*dir[0], pos[1] - 1.94*dir[1]), (pos[0]+1.94*dir[0], pos[1]+1.94*dir[1])))
 
             nextPlayer(players, wall)
 

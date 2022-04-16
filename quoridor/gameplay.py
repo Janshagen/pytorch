@@ -76,7 +76,7 @@ def playerBlocked(board, players, row, col, dir) -> bool:
     return blocked
 
 
-def place_wall(players, wall, board) -> bool:
+def placeWall(players, wall, board) -> bool:
     dir = (0, 1) if wall.orientation == "horizontal" else (1, 0)
     row = wall.r
     col = wall.c
@@ -94,9 +94,8 @@ def place_wall(players, wall, board) -> bool:
                 board[row + dir[0]][col + dir[1]] = 0
                 return False
 
-        players[0].walls.append((row, col))
-        players[0].walls.append((row + dir[0], col + dir[1]))
-        players[0].walls.append((row - dir[0], col - dir[1]))
+        players[0].walls.append(
+            ((row - 1.94*dir[0], col - 1.94*dir[1]), (row + 1.94*dir[0], col + 1.94*dir[1])))
         return True
 
 

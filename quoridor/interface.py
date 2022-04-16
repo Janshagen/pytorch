@@ -1,6 +1,6 @@
 from Player import Player
 from Wall import Wall
-from gameplay import place_wall
+from gameplay import placeWall
 import numpy as np
 import pygame
 import sys
@@ -16,7 +16,7 @@ def resolveEvents(display, players, wall, board, WIDTH) -> bool:
             sys.exit()
 
         if event_.type == pygame.MOUSEBUTTONDOWN:
-            return place_wall(players, wall, board)
+            return placeWall(players, wall, board)
 
         elif event_.type == pygame.KEYDOWN:
             key = event_.key

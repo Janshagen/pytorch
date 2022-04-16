@@ -69,13 +69,9 @@ class Player:
         pygame.draw.circle(
             display, self.color, (self.c * w, self.r * w), 0.6*w)
 
-        for row, col in self.walls:
-            if not even(row) and even(col):
-                pygame.draw.line(display, self.color,
-                                 (col*w, (row-1)*w), (col*w, (row+1)*w), width=5)
-            elif even(row) and not even(col):
-                pygame.draw.line(display, self.color,
-                                 ((col-1)*w, row*w), ((col+1)*w, row*w), width=5)
+        for start, end in self.walls:
+            pygame.draw.line(display, self.color,
+                             (start[1]*w, start[0]*w), (end[1]*w, end[0]*w), width=5)
 
     def move(self, key, board, players, w, display) -> bool:
         """Moves the player. If the position is occupied by an opponent
@@ -177,8 +173,12 @@ class Player:
         while True:
             currentPos, steps = nextPos.DeQueue()
             for move in (-1, 0), (1, 0), (0, 1), (0, -1):
+                obstacle = board[currentPos[0] +
+                                 move[0]][currentPos[1] + move[1]]
+                if obstacle != 5 and obstacle != 0:
+                    steps -= 1
                 newPos = (currentPos[0] + move[0]*2, currentPos[1] + move[1]*2)
-                if not board[currentPos[0] + move[0]][currentPos[1] + move[1]] and newPos not in triedPos:
+                if not obstacle and newPos not in triedPos:
                     if self.winner2(newPos):
                         return steps + 1
                     nextPos.EnQueue((newPos, steps+1))
