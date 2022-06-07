@@ -7,8 +7,10 @@ GRIDSIZE = 9  # should be odd
 MATRIX_SIZE = 2*GRIDSIZE+1
 WIDTH = 100
 
-SIMULATIONS = 3000
+THINK_TIME = 10
+SIMULATIONS = 5000
 CUTOFF = 0
+UCB1 = 0.75
 
 
 def main() -> None:
@@ -22,8 +24,8 @@ def main() -> None:
                 nextPlayer(players, wall)
 
         else:  # players[0].species == 'AI'
-            move = AIfindMove(gameBoard, players,
-                              SIMULATIONS, CUTOFF, MATRIX_SIZE)
+            move = AIfindMove(gameBoard, players, SIMULATIONS,
+                              THINK_TIME, UCB1, CUTOFF, MATRIX_SIZE)
             player = players[0]
             makeMove(gameBoard, move, player.num)
             if move[0] == 'walk':

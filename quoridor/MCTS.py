@@ -1,25 +1,32 @@
 from Node import Node
 from gameplay import availableMoves, randomMove, makeMove, gameEnd, winner, locatePlayer
 import numpy as np
+import time
 
 
-def AIfindMove(rootState: np.ndarray, players, SIMULATIONS: int, CUTOFF: int, MATRIX_SIZE) -> np.ndarray:
+def AIfindMove(rootState: np.ndarray, players, sims: int, THINK_TIME: int, UCB1: float, CUTOFF: int, MATRIX_SIZE) -> np.ndarray:
     rootPlayer = players[0]
     root = Node(rootPlayer.num)
     moves = availableMoves(rootState, players, rootPlayer.num, MATRIX_SIZE)
     root.makeChildren(rootPlayer.num, moves)
 
-    for _ in range(SIMULATIONS):
+    startTime = time.process_time()
+    i = 0
+    for _ in range(sims):
+        # if time.process_time() - startTime > THINK_TIME:
+        #     printData(root)
+        #     print(time.process_time() - startTime)
+        #     return root.chooseMove()
         currentState = rootState.copy()
         current = root
 
         # Tree traverse
         while len(current.children) > 0:
-            current = current.selectChild()
+            current = current.selectChild(UCB1)
             makeMove(currentState, current.move, current.num)
 
             # returns a move if visits exceeds half of total simulations
-            if current.visits >= 0.5*SIMULATIONS:
+            if current.visits >= 0.5*sims:
                 printData(root)
                 return current.move
 
@@ -28,16 +35,17 @@ def AIfindMove(rootState: np.ndarray, players, SIMULATIONS: int, CUTOFF: int, MA
             moves = availableMoves(currentState, players,
                                    current.nextPlayer(), MATRIX_SIZE)
             current.makeChildren(current.nextPlayer(), moves)
-            current = current.selectChild()
+            current = current.selectChild(UCB1)
             makeMove(currentState, current.move, current.num)
 
         # Rollout
-        result = rollout(currentState, current.num, players,
-                         current.move, CUTOFF, MATRIX_SIZE)
+        # result = rollout(currentState, current.num, players,
+        #                  current.move, CUTOFF, MATRIX_SIZE)
+        result = evaluation(currentState, players)
 
         # Backpropagation
         current.backpropagate(result)
-    printData(root)
+
     return root.chooseMove()
 
 

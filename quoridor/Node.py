@@ -19,7 +19,7 @@ class Node:
 
         random.shuffle(self.children)
 
-    def selectChild(self) -> object:
+    def selectChild(self, C) -> object:
         """Uses UCB1 to pick child node"""
         # if node doesnt have children, return self
         if len(self.children) == 0:
@@ -35,7 +35,7 @@ class Node:
             v = child.value
             mi = child.visits
             mp = child.parent.visits
-            UCB1values[i] = v/mi + 1 * np.sqrt(np.log(mp)/mi)
+            UCB1values[i] = v/mi + C * np.sqrt(np.log(mp)/mi)
 
         # return child that maximises UCB1
         maxIndex = np.argmax(UCB1values)
