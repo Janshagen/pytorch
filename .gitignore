@@ -1,4 +1,7 @@
-*/__pycache__
-photos/
+__pycache__
+test.py
 .venv
-*/test.py
+*.zip
+MNIST
+photos
+*.pdf
