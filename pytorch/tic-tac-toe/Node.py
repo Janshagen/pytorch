@@ -46,7 +46,7 @@ class Node:
         instance = self
         while instance != None:
             instance.visits += 1
-            instance.value += result[instance.player - 1]
+            instance.value += result[0] if instance.player == 1 else result[1]
             instance = instance.parent
 
     def chooseMove(self) -> tuple:
@@ -64,4 +64,4 @@ class Node:
         return chosenChild.move
 
     def nextPlayer(self) -> int:
-        return (self.player + 2) % 2 + 1
+        return -1 if self.player == 1 else 1

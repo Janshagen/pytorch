@@ -4,8 +4,7 @@ from MCTS import AIfindMove
 
 # Configurations
 SIMULATIONS = 1000
-WIDTH = 120
-HEIGHT = WIDTH*0.8
+WIDTH = 200
 UCB1 = 1.4
 
 
@@ -15,17 +14,17 @@ def game(gameState, player, screen, frame, sims):
             # Human
             move = resolveEvent(gameState, player, WIDTH)
             makeMove(gameState, player, move)
-            if type(move) == int:
+            if move:
                 player = nextPlayer(player)
 
-        elif player == 2:
+        elif player == -1:
             # AI
             move = AIfindMove(gameState, player, sims, UCB1)
             makeMove(gameState, player, move)
             player = nextPlayer(player)
             resolveEvent(gameState, 0, WIDTH)
 
-        draw(screen, frame, gameState, WIDTH, HEIGHT, move, player)
+        draw(screen, frame, gameState, WIDTH, move, player)
         if gameEnd(gameState).any():
             return
 
@@ -33,8 +32,8 @@ def game(gameState, player, screen, frame, sims):
 def main() -> None:
     sims = chooseConfig(SIMULATIONS)
     player = 1
-    gameState, screen, frame = initializeGame(WIDTH, HEIGHT)
-    draw(screen, frame, gameState, WIDTH, HEIGHT)
+    gameState, screen, frame = initializeGame(WIDTH)
+    draw(screen, frame, gameState, WIDTH)
     game(gameState, player, screen, frame, sims)
     if not gameOver(screen, gameEnd(gameState), WIDTH):
         main()

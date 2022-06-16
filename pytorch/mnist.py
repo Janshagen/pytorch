@@ -105,8 +105,8 @@ def main():
     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
     loss = nn.CrossEntropyLoss()
 
-   # train(model, trainingData, optimizer, loss, device)
-    exampleData(trainingData)
+    train(model, trainingData, optimizer, loss, device)
+    # exampleData(trainingData)
     validate(model, validationData, device)
 
     # torch.save(model.state_dict(), FILE)
