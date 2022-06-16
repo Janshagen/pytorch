@@ -1,4 +1,4 @@
-from gameplay import gameEnd, makeMove, nextPlayer
+from gameplay import availableMoves, gameEnd, makeMove, nextPlayer
 from interface import draw, gameOver, initializeGame, resolveEvent, chooseConfig
 from MCTS import AIfindMove
 
@@ -8,7 +8,7 @@ WIDTH = 200
 UCB1 = 1.4
 
 
-def game(gameState, player, screen, frame, sims):
+def game(gameState, player, screen, frame, sims) -> int:
     while True:
         if player == 1:
             # Human
@@ -25,8 +25,12 @@ def game(gameState, player, screen, frame, sims):
             resolveEvent(gameState, 0, WIDTH)
 
         draw(screen, frame, gameState, WIDTH, move, player)
+
+        if not availableMoves(gameState):
+            return 0
+
         if gameEnd(gameState).any():
-            return
+            return nextPlayer(player)
 
 
 def main() -> None:
@@ -34,8 +38,8 @@ def main() -> None:
     player = 1
     gameState, screen, frame = initializeGame(WIDTH)
     draw(screen, frame, gameState, WIDTH)
-    game(gameState, player, screen, frame, sims)
-    if not gameOver(screen, gameEnd(gameState), WIDTH):
+    result = game(gameState, player, screen, frame, sims)
+    if not gameOver(screen, result, WIDTH):
         main()
 
 

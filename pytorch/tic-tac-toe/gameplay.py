@@ -27,10 +27,6 @@ def gameEnd(board: np.ndarray) -> np.ndarray:
     COLUMN_COUNT = 3
     ROW_COUNT = 3
 
-    # Draw
-    if not availableMoves(board):
-        return np.array([1, 1])
-
     # Check horizontal locations for win
     for r in range(ROW_COUNT):
         firstSpot = board[r][0]

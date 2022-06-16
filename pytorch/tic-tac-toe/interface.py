@@ -93,8 +93,8 @@ def placePiece(board: np.ndarray, WIDTH: int):
 
 
 def gameOver(screen: pygame.Surface, result: np.ndarray, WIDTH: int) -> bool:
-    color = PURPLE if result[0] == 1 else RED
-    text = 'Winner' if result[0] != result[1] else 'Draw'
+    color = PURPLE if result == 1 else RED
+    text = 'Draw' if result == 0 else 'Winner'
     font = pygame.font.Font(None, 128)
     while True:
         textFont = font.render(text, True, color)
