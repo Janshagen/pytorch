@@ -10,7 +10,7 @@ RED = (220, 20, 60)
 
 
 def initializeGame(WIDTH: int):
-    gameState = np.zeros((3, 3), np.int8)
+    gameState = np.zeros((3, 3))
 
     pygame.init()
     screen = pygame.display.set_mode((3 * WIDTH, 3 * WIDTH))
