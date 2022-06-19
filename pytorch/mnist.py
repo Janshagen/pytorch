@@ -54,9 +54,10 @@ def loadData():
 def exampleData(data):
     examples = iter(data)
     example_data, example_targets = examples.next()
+    print(example_data)
 
-    for i in range(6):
-        plt.subplot(2, 3, i+1)
+    for i in range(36):
+        plt.subplot(6, 6, i+1)
         plt.imshow(example_data[i][0], cmap='gray')
     plt.show()
 
@@ -106,14 +107,14 @@ def main():
     loss = nn.CrossEntropyLoss()
 
     train(model, trainingData, optimizer, loss, device)
-    # exampleData(trainingData)
-    validate(model, validationData, device)
+    exampleData(trainingData)
 
     # torch.save(model.state_dict(), FILE)
 
     # model.load_state_dict(torch.load(FILE))
-    # mode.to(device)
+    # model.to(device)
     # model.eval()
+    # validate(model, validationData, device)
 
 
 if __name__ == '__main__':

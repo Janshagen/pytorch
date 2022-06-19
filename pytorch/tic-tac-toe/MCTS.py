@@ -1,9 +1,10 @@
 import numpy as np
 from gameplay import availableMoves, gameEnd, makeMove, nextPlayer, randomMove
 from Node import Node
+import torch
 
 
-def AIfindMove(rootState: np.ndarray, rootPlayer: int, simulations: int, UCB1: float) -> int:
+def AIfindMove(rootState: np.ndarray, rootPlayer: int, simulations: int, UCB1: float, model=None, device=None) -> int:
     moves = availableMoves(rootState)
 
     if not moves:
@@ -23,7 +24,7 @@ def AIfindMove(rootState: np.ndarray, rootPlayer: int, simulations: int, UCB1: f
 
             # returns a move if visits exceeds half of total simulations
             if current.visits >= 0.5*simulations:
-                printData(root)
+                # printData(root)
                 return current.move
 
         # Expand tree if current has been visited and isnt a terminal node
@@ -35,11 +36,12 @@ def AIfindMove(rootState: np.ndarray, rootPlayer: int, simulations: int, UCB1: f
 
         # Rollout
         result = rollout(currentState, current.nextPlayer())
+        #result = evaluation(currentState, model, device)
 
         # Backpropagation
         current.backpropagate(result)
 
-    printData(root)
+    # printData(root)
     return root.chooseMove()
 
 
@@ -57,6 +59,11 @@ def rollout(currentState: np.ndarray, currentPlayer: int) -> np.ndarray:
         move = randomMove(moves)
         makeMove(currentState, currentPlayer, move)
         currentPlayer = nextPlayer(currentPlayer)
+
+
+def evaluation(board: np.ndarray, model, device) -> float:
+    input = torch.from_numpy(board).view(-1, 9).to(device)
+    return model(input)
 
 
 def printData(root: object) -> None:

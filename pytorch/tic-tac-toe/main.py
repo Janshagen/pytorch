@@ -1,11 +1,20 @@
 from gameplay import availableMoves, gameEnd, makeMove, nextPlayer
 from interface import draw, gameOver, initializeGame, resolveEvent, chooseConfig
 from MCTS import AIfindMove
+import torch
+from train_model import Model
 
 # Configurations
 SIMULATIONS = 1000
 WIDTH = 200
 UCB1 = 1.4
+
+FILE = 'tic-tac-toe-model.pth'
+
+INPUT_SIZE = 9
+OUTPUT_SIZE = 1
+HIDDEN_SIZE1 = 54
+HIDDEN_SIZE2 = 54
 
 
 def game(gameState, player, screen, frame, sims) -> int:
@@ -38,6 +47,14 @@ def main() -> None:
     player = 1
     gameState, screen, frame = initializeGame(WIDTH)
     draw(screen, frame, gameState, WIDTH)
+
+    # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    # model = Model(INPUT_SIZE, HIDDEN_SIZE1,
+    #               HIDDEN_SIZE2, OUTPUT_SIZE).to(device)
+    # model.load_state_dict(torch.load(FILE))
+    # model.to(device)
+    # model.eval()
+
     result = game(gameState, player, screen, frame, sims)
     if not gameOver(screen, result, WIDTH):
         main()
