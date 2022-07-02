@@ -11,6 +11,8 @@ from gameplay import availableMoves, gameEnd, makeMove, nextPlayer
 from MCTS import AIfindMove
 
 # Constants
+SAVE_MODEL = False
+
 FILE = 'tic-tac-toe-model.pth'
 LEARNING_RATE = 0.001
 N_EPOCHS = 300_000
@@ -132,7 +134,8 @@ def main() -> None:
     train(model, optimizer, device)
     validate(model, device)
 
-    torch.save(model.state_dict(), FILE)
+    if SAVE_MODEL:
+        torch.save(model.state_dict(), FILE)
 
 
 if __name__ == '__main__':

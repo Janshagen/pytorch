@@ -1,13 +1,16 @@
-import torch
-import torchvision
-import torchvision.transforms as transforms
-import torch.nn as nn
-import torch.nn.functional as F
-import matplotlib.pyplot as plt
 import sys
 
+import matplotlib.pyplot as plt
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torchvision
+import torchvision.transforms as transforms
+
 # Constants
-FILE = 'mnist_model.pth'
+SAVE_MODEL = False
+
+FILE = '/home/anton/skola/egen/pytorch/mnist/model.pth'
 LEARNING_RATE = 0.0005
 N_EPOCHS = 100
 BATCH_SIZE = 100
@@ -36,12 +39,12 @@ class Model(nn.Module):
 
 
 def loadData():
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cuda' if not torch.cuda.is_available() else 'cpu')
 
     trainingData = torchvision.datasets.MNIST(
-        root='~/skola/egen/pytorch/MNIST/', download=True, transform=transforms.ToTensor(), train=True)
+        root='/home/anton/skola/egen/pytorch/mnist/images', download=True, transform=transforms.ToTensor(), train=True)
     validationData = torchvision.datasets.MNIST(
-        root='~/skola/egen/pytorch/MNIST/', download=True, transform=transforms.ToTensor(), train=False)
+        root='/home/anton/skola/egen/pytorch/mnist/images', download=True, transform=transforms.ToTensor(), train=False)
 
     trainingData = torch.utils.data.DataLoader(
         trainingData, batch_size=BATCH_SIZE, shuffle=True)
@@ -51,11 +54,15 @@ def loadData():
     return device, trainingData, validationData
 
 
-def exampleData(data):
+def exampleData(data, model):
     examples = iter(data)
     example_data, example_targets = examples.next()
-    print(example_data)
+    #example_data = example_data.view(-1, INPUT_SIZE)
 
+    # plt.imshow(example_data[0].view(28, 28), cmap='gray')
+
+    # print(model(example_data[0]))
+    # plt.show()
     for i in range(36):
         plt.subplot(6, 6, i+1)
         plt.imshow(example_data[i][0], cmap='gray')
@@ -106,15 +113,16 @@ def main():
     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
     loss = nn.CrossEntropyLoss()
 
-    train(model, trainingData, optimizer, loss, device)
-    exampleData(trainingData)
+    # train(model, trainingData, optimizer, loss, device)
+    # exampleData(trainingData, model)
 
-    # torch.save(model.state_dict(), FILE)
+    if SAVE_MODEL:
+        torch.save(model.state_dict(), FILE)
 
-    # model.load_state_dict(torch.load(FILE))
-    # model.to(device)
-    # model.eval()
-    # validate(model, validationData, device)
+    model.load_state_dict(torch.load(FILE))
+    model.to(device)
+    model.eval()
+    validate(model, validationData, device)
 
 
 if __name__ == '__main__':
