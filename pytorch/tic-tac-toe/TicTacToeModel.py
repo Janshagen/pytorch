@@ -1,0 +1,53 @@
+import torch
+import torch.nn as nn
+import numpy as np
+
+
+class LinearModel(nn.Module):
+    def __init__(self, input_dim, hidden_dim1, hidden_dim2, hidden_dim3, output_dim) -> None:
+        super().__init__()
+        self.input = nn.Linear(input_dim, hidden_dim1)
+        self.hidden1 = nn.Linear(hidden_dim1, hidden_dim2)
+        self.hidden2 = nn.Linear(hidden_dim2, hidden_dim3)
+        self.output = nn.Linear(hidden_dim3, output_dim, bias=False)
+
+    def forward(self, x) -> torch.Tensor:
+        x = torch.relu(self.input(x))
+        x = torch.relu(self.hidden1(x))
+        x = torch.relu(self.hidden2(x))
+        x = torch.sigmoid(self.output(x))
+        return x
+
+    def board2tensor(selfboard: np.array, device: torch.device) -> torch.Tensor:
+        board = torch.from_numpy(board).to(device)
+        ones = torch.ones((3, 3)).to(device)
+        a = (board == ones).float().reshape(1, 9)
+        b = (board == -ones).float().reshape(1, 9)
+        return torch.cat((a, b), dim=1)
+
+
+class ConvModel(nn.Module):
+    def __init__(self, hidden_dim1, hidden_dim2, output_dim) -> None:
+        super().__init__()
+        self.conv = nn.Conv2d(2, 2, 2)
+        self.linear1 = nn.Linear(8, hidden_dim1)
+        self.linear2 = nn.Linear(hidden_dim1, hidden_dim2)
+        self.linear3 = nn.Linear(hidden_dim2, output_dim)
+
+    def forward(self, x) -> torch.Tensor:
+        x = torch.relu(self.conv(x))
+        x = torch.relu(self.linear1(x.reshape(-1, 1, 8)))
+        x = torch.relu(self.linear2(x))
+        x = self.linear3(x)
+        return x
+
+    def board2tensor(self, board: np.array, device: torch.device) -> torch.Tensor:
+        board = torch.from_numpy(board).to(device)
+        ones = torch.ones((3, 3)).to(device)
+        a = (board == ones).float()
+        b = (board == -ones).float()
+
+        input = torch.empty((1, 2, 3, 3), device=device)
+        input[0][0] = a
+        input[0][1] = b
+        return input
