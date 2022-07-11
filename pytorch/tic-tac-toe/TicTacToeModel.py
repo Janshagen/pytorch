@@ -29,25 +29,26 @@ class LinearModel(nn.Module):
 class ConvModel(nn.Module):
     def __init__(self, hidden_dim1, hidden_dim2, output_dim) -> None:
         super().__init__()
-        self.conv = nn.Conv2d(2, 2, 2)
-        self.linear1 = nn.Linear(8, hidden_dim1)
+        self.conv = nn.Conv2d(3, 3, 2)
+        self.linear1 = nn.Linear(12, hidden_dim1)
         self.linear2 = nn.Linear(hidden_dim1, hidden_dim2)
         self.linear3 = nn.Linear(hidden_dim2, output_dim)
 
     def forward(self, x) -> torch.Tensor:
         x = torch.relu(self.conv(x))
-        x = torch.relu(self.linear1(x.reshape(-1, 1, 8)))
+        x = torch.relu(self.linear1(x.reshape(-1, 1, 12)))
         x = torch.relu(self.linear2(x))
         x = self.linear3(x)
         return x
 
-    def board2tensor(self, board: np.array, device: torch.device) -> torch.Tensor:
+    def board2tensor(self, board: np.array, player: int, device: torch.device) -> torch.Tensor:
         board = torch.from_numpy(board).to(device)
         ones = torch.ones((3, 3)).to(device)
         a = (board == ones).float()
         b = (board == -ones).float()
 
-        input = torch.empty((1, 2, 3, 3), device=device)
+        input = torch.empty((1, 3, 3, 3), device=device)
         input[0][0] = a
         input[0][1] = b
+        input[0][2] = player*ones
         return input

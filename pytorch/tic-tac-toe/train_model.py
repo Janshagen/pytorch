@@ -8,10 +8,11 @@ import torch.nn.functional as F
 from matplotlib import pyplot as plt
 
 from gameplay import availableMoves, gameEnd, makeMove, nextPlayer
-from MCTS import AIfindMove
+from AI import MCTSfindMove
 from TicTacToeModel import ConvModel
 
 # Constants
+LOAD_MODEL = False
 SAVE_MODEL = True
 FILE = '/home/anton/skola/egen/pytorch/tic-tac-toe/TicTacToeModelConv.pth'
 
@@ -19,8 +20,8 @@ LEARNING_RATE = 0.01
 N_EPOCHS = 100_000
 
 OUTPUT_SIZE = 3
-HIDDEN_SIZE1 = 64
-HIDDEN_SIZE2 = 64
+HIDDEN_SIZE1 = 72
+HIDDEN_SIZE2 = 72
 
 SIMULATIONS = 30
 UCB1 = 1.4
@@ -41,23 +42,30 @@ def train(model: nn.Module, optimizer: torch.optim.Optimizer, loss, device: torc
 
         if (epoch + 1) % 100 == 0:
             print(
-                f'Epoch [{epoch+1}/{N_EPOCHS}], Loss: {error.item():.8f}, predictions: {torch.softmax(predictions.reshape((numMoves, 3))[-1], 0)[result.item()].item():.4f}, result: {result.item()}')
+                f'Epoch [{epoch+1}/{N_EPOCHS}], Loss: {error.item():.8f}, prediction: {torch.softmax(predictions.reshape((numMoves, 3))[-1], 0)[result.item()].item():.4f}, result: {result.item()}')
 
 
 def game(model: nn.Module, device: torch.device) -> torch.Tensor:
     player = random.choice([1, -1])
     gameState = np.zeros((3, 3))
-    input = torch.zeros((1, 2, 3, 3), device=device)
+    input = torch.zeros((1, 3, 3, 3), device=device)
+    input[0][2] = torch.ones((3, 3)) * player
     while True:
-        move = AIfindMove(gameState, player, SIMULATIONS, UCB1)
+        move = MCTSfindMove(gameState, player, SIMULATIONS, UCB1)
         makeMove(gameState, player, move)
-
-        input = torch.cat(
-            (input, model.board2tensor(gameState, device)), dim=0)
         player = nextPlayer(player)
+
+        # adding rotated boards
+        for i in range(4):
+            permutation = model.board2tensor(
+                gameState, player, device).rot90(k=i, dims=(2, 3))
+            input = torch.cat((input, permutation), dim=0)
 
         # win
         if gameEnd(gameState).any():
+            # adding endboard but with other player to make turn
+            input = torch.cat((input, model.board2tensor(
+                gameState, -1*player, device)), dim=0)
             predictions = model(input)
 
             res = [0] if nextPlayer(
@@ -66,24 +74,45 @@ def game(model: nn.Module, device: torch.device) -> torch.Tensor:
 
         # draw
         if not availableMoves(gameState):
+            # adding endboard but with other player to make turn
+            input = torch.cat((input, model.board2tensor(
+                gameState, -1*player, device)), dim=0)
             predictions = model(input)
 
             return predictions, torch.tensor([1], device=device)
 
 
 def validate(model, device):
-    win = np.array([[1, 1, 1], [-1, 0, -1], [-1, 0, 0]])
-    draw = np.array([[1, -1, 1], [-1, 1, -1], [-1, 1, -1]])
+    win1 = np.array([[1, 1, 1],
+                     [-1, 0, -1],
+                     [-1, 0, 0]])
+
+    draw = np.array([[1, -1, 1],
+                     [-1, 1, -1],
+                     [-1, 1, -1]])
+
+    win2 = np.array([[-1, 1, 1],
+                     [-1, 1, -1],
+                     [-1, -1, 1]])
 
     with torch.no_grad():
-        print(torch.softmax(model(model.board2tensor(win, device)), 2))
-        print(torch.softmax(model(model.board2tensor(draw, device)), 2))
+        print('win 1:', torch.softmax(
+            model(model.board2tensor(win1, -1, device)), 2))
+        print('draw:', torch.softmax(
+            model(model.board2tensor(draw, 1, device)), 2))
+        print('win 2:', torch.softmax(
+            model(model.board2tensor(win2, 1, device)), 2))
 
 
 def main() -> None:
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     model = ConvModel(HIDDEN_SIZE1, HIDDEN_SIZE2, OUTPUT_SIZE).to(device)
+    if LOAD_MODEL:
+        model.load_state_dict(torch.load(FILE))
+        model.to(device)
+        model.eval()
+
     optimizer = torch.optim.SGD(model.parameters(), lr=LEARNING_RATE)
     loss = nn.CrossEntropyLoss()
 

@@ -6,7 +6,7 @@ from Node import Node
 from TicTacToeModel import *
 
 
-def AIfindMove(rootState: np.ndarray, rootPlayer: int, simulations: int, UCB1: float, model=None, device=None) -> int:
+def MCTSfindMove(rootState: np.ndarray, rootPlayer: int, simulations: int, UCB1: float, model=None, device=None) -> int:
     moves = availableMoves(rootState)
 
     if not moves:
@@ -38,7 +38,9 @@ def AIfindMove(rootState: np.ndarray, rootPlayer: int, simulations: int, UCB1: f
 
         # Rollout
         result = rollout(currentState, current.nextPlayer())
+
         # result = evaluation(currentState, model, device)
+        # result = evaluationConv(currentState, current.nextPlayer(), model, device)
 
         # Backpropagation
         current.backpropagate(result)
@@ -63,11 +65,34 @@ def rollout(currentState: np.ndarray, currentPlayer: int) -> np.ndarray:
         currentPlayer = nextPlayer(currentPlayer)
 
 
-def evaluation(board: np.ndarray, model, device) -> float:
+def evaluation(board: np.ndarray, model: nn.Module, device: torch.device) -> np.ndarray:
     input = model.board2tensor(board, device)
     prob = model(input).item()
 
-    return np.array([prob, -prob])
+    return np.array([prob, 1-prob])
+
+
+def evaluationConv(board: np.ndarray, player: int, model: nn.Module, device: torch.device) -> np.ndarray:
+    input = model.board2tensor(board, player, device)
+    prob = model(input)
+    # playerIndex = 0 if player == 1 else 2
+    prob = torch.softmax(prob, 2)[0][0]
+
+    # evntuellt olika probabilities här
+    return np.array([prob[0].item(), prob[2].item()])
+
+
+def bestEvaluationFindMove(board: np.ndarray, player: int, model: nn.Module, device: torch.device):
+    moves = availableMoves(board)
+    evaluations = np.empty(len(moves))
+    for i, move in enumerate(moves):
+        board_ = board.copy()
+        makeMove(board_, player, move)
+        evaluations[i] = model(model.board2tensor(
+            board_, nextPlayer(player), device))[0][0][0].item()
+    maxIndex = np.argmax(evaluations)
+
+    return moves[maxIndex]
 
 
 def loadLinearModel():
@@ -88,7 +113,7 @@ def loadLinearModel():
 def loadConvModel():
     FILE = '/home/anton/skola/egen/pytorch/tic-tac-toe/TicTacToeModelConv.pth'
     OUTPUT_SIZE = 3
-    HIDDEN_SIZE1 = HIDDEN_SIZE2 = 64
+    HIDDEN_SIZE1 = HIDDEN_SIZE2 = 72
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = ConvModel(HIDDEN_SIZE1, HIDDEN_SIZE2, OUTPUT_SIZE).to(device)
     model.load_state_dict(torch.load(FILE))

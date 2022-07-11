@@ -1,7 +1,7 @@
 from gameplay import availableMoves, gameEnd, makeMove, nextPlayer
 from interface import (chooseConfig, draw, gameOver, initializeGame,
                        resolveEvent)
-from MCTS import AIfindMove, loadLinearModel, loadConvModel
+from AI import MCTSfindMove, bestEvaluationFindMove, loadLinearModel, loadConvModel
 import torch
 
 # Configurations
@@ -21,12 +21,13 @@ def game(gameState, model, device, player, screen, frame, sims) -> int:
 
         elif player == 1:
             # AI
-            move = AIfindMove(gameState, player,
-                              sims, UCB1, model=model, device=device)
+            # move = MCTSfindMove(gameState, player, sims, UCB1, model, device)
+            move = bestEvaluationFindMove(gameState, player, model, device)
             makeMove(gameState, player, move)
             player = nextPlayer(player)
             resolveEvent(gameState, 0, WIDTH)
-            # print(torch.softmax(model(model.board2tensor(gameState, device)), dim=2))
+            print(torch.softmax(model(model.board2tensor(
+                gameState, nextPlayer(player), device)), dim=2))
 
         draw(screen, frame, gameState, WIDTH, move, player)
 
@@ -39,10 +40,10 @@ def game(gameState, model, device, player, screen, frame, sims) -> int:
 
 def main() -> None:
     sims = chooseConfig(SIMULATIONS)
-    player = 1
+    player = -1
     gameState, screen, frame = initializeGame(WIDTH)
     draw(screen, frame, gameState, WIDTH)
-    model, device = loadLinearModel()
+    model, device = loadConvModel()
 
     result = game(gameState, model, device, player, screen, frame, sims)
     if not gameOver(screen, result, WIDTH):
