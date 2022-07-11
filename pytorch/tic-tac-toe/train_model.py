@@ -1,18 +1,15 @@
 import random
-import sys
 
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from matplotlib import pyplot as plt
 
-from gameplay import availableMoves, gameEnd, makeMove, nextPlayer
 from AI import MCTSfindMove
+from gameplay import availableMoves, gameEnd, makeMove, nextPlayer
 from TicTacToeModel import ConvModel
 
 # Constants
-LOAD_MODEL = False
+LOAD_MODEL = True
 SAVE_MODEL = True
 FILE = '/home/anton/skola/egen/pytorch/tic-tac-toe/TicTacToeModelConv.pth'
 
@@ -68,8 +65,7 @@ def game(model: nn.Module, device: torch.device) -> torch.Tensor:
                 gameState, -1*player, device)), dim=0)
             predictions = model(input)
 
-            res = [0] if nextPlayer(
-                player) == 1 else [2]
+            res = [0] if nextPlayer(player) == 1 else [2]
             return predictions, torch.tensor(res, device=device)
 
         # draw

@@ -26,8 +26,9 @@ def game(gameState, model, device, player, screen, frame, sims) -> int:
             makeMove(gameState, player, move)
             player = nextPlayer(player)
             resolveEvent(gameState, 0, WIDTH)
+
             print(torch.softmax(model(model.board2tensor(
-                gameState, nextPlayer(player), device)), dim=2))
+                gameState, player, device)), dim=2))
 
         draw(screen, frame, gameState, WIDTH, move, player)
 

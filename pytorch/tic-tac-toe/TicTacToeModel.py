@@ -4,6 +4,11 @@ import numpy as np
 
 
 class LinearModel(nn.Module):
+    """Output is probability of player 1 to win. 
+    Input to forward is a (1, 18) tensor where first 9 values 
+    represents player 1 positions and second layer represents 
+    player -1 positions."""
+
     def __init__(self, input_dim, hidden_dim1, hidden_dim2, hidden_dim3, output_dim) -> None:
         super().__init__()
         self.input = nn.Linear(input_dim, hidden_dim1)
@@ -18,7 +23,7 @@ class LinearModel(nn.Module):
         x = torch.sigmoid(self.output(x))
         return x
 
-    def board2tensor(selfboard: np.array, device: torch.device) -> torch.Tensor:
+    def board2tensor(self, board: np.array, device: torch.device) -> torch.Tensor:
         board = torch.from_numpy(board).to(device)
         ones = torch.ones((3, 3)).to(device)
         a = (board == ones).float().reshape(1, 9)
@@ -27,6 +32,11 @@ class LinearModel(nn.Module):
 
 
 class ConvModel(nn.Module):
+    """Softmax of output is probability of winning or drawing as 
+    [win(1), draw, win(-1)]. Input to froward is a (3, 3, 3) tensor where 
+    first layer represents player 1, second layer represents player -1, 
+    and third layer is filled with the value of player to make a move."""
+
     def __init__(self, hidden_dim1, hidden_dim2, output_dim) -> None:
         super().__init__()
         self.conv = nn.Conv2d(3, 3, 2)

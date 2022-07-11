@@ -36,11 +36,11 @@ def MCTSfindMove(rootState: np.ndarray, rootPlayer: int, simulations: int, UCB1:
             current = current.selectChild(UCB1)
             makeMove(currentState, current.player, current.move)
 
-        # Rollout
+        # Rollout/Evaluation
         result = rollout(currentState, current.nextPlayer())
-
-        # result = evaluation(currentState, model, device)
-        # result = evaluationConv(currentState, current.nextPlayer(), model, device)
+        # result = evaluationLinear(currentState, model, device)
+        # result = evaluationConv(
+        #     currentState, current.nextPlayer(), model, device)
 
         # Backpropagation
         current.backpropagate(result)
@@ -50,7 +50,7 @@ def MCTSfindMove(rootState: np.ndarray, rootPlayer: int, simulations: int, UCB1:
 
 
 def rollout(currentState: np.ndarray, currentPlayer: int) -> np.ndarray:
-    # finds a random move and executes it if possible. as long as gameEnd is False and movesInRollosut is less than cutoff
+    """Finds a random move and executes it if possible."""
     while True:
         result = gameEnd(currentState)
         if result.any():
@@ -65,31 +65,35 @@ def rollout(currentState: np.ndarray, currentPlayer: int) -> np.ndarray:
         currentPlayer = nextPlayer(currentPlayer)
 
 
-def evaluation(board: np.ndarray, model: nn.Module, device: torch.device) -> np.ndarray:
+def evaluationLinear(board: np.ndarray, model: nn.Module, device: torch.device) -> np.ndarray:
     input = model.board2tensor(board, device)
     prob = model(input).item()
 
-    return np.array([prob, 1-prob])
+    # prob - (1-prob) = 2*prob-1
+    prob = 2*prob-1
+    return np.array([prob, -prob])
 
 
 def evaluationConv(board: np.ndarray, player: int, model: nn.Module, device: torch.device) -> np.ndarray:
     input = model.board2tensor(board, player, device)
-    prob = model(input)
-    # playerIndex = 0 if player == 1 else 2
-    prob = torch.softmax(prob, 2)[0][0]
-
-    # evntuellt olika probabilities här
-    return np.array([prob[0].item(), prob[2].item()])
+    prob = model(input)[0][0]
+    prob = torch.softmax(prob, dim=0)
+    eval = player * (prob[0]-prob[2]).item()
+    return np.array([eval, -eval])
 
 
 def bestEvaluationFindMove(board: np.ndarray, player: int, model: nn.Module, device: torch.device):
+    """Chooses move which maximizes players evaluation, and minimizes opponents evaluation, 
+    of gamestate after that move is made."""
     moves = availableMoves(board)
     evaluations = np.empty(len(moves))
     for i, move in enumerate(moves):
         board_ = board.copy()
         makeMove(board_, player, move)
-        evaluations[i] = model(model.board2tensor(
-            board_, nextPlayer(player), device))[0][0][0].item()
+        eval = model(model.board2tensor(
+            board_, nextPlayer(player), device))[0][0]
+        eval = torch.softmax(eval, dim=0)
+        evaluations[i] = player * (eval[0] - eval[2]).item()
     maxIndex = np.argmax(evaluations)
 
     return moves[maxIndex]
