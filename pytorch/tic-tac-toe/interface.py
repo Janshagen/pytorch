@@ -1,6 +1,8 @@
-import pygame
 import sys
+
 import numpy as np
+import pygame
+
 from gameplay import availableMoves
 
 WHITE = (230, 230, 230)

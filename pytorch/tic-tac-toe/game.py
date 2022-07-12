@@ -1,8 +1,12 @@
+import numpy as np
+import pygame
+import torch
+
+from AI import (MCTSfindMove, bestEvaluationFindMove, loadConvModel,
+                loadLinearModel)
 from gameplay import availableMoves, gameEnd, makeMove, nextPlayer
 from interface import (chooseConfig, draw, gameOver, initializeGame,
                        resolveEvent)
-from AI import MCTSfindMove, bestEvaluationFindMove, loadLinearModel, loadConvModel
-import torch
 
 # Configurations
 SIMULATIONS = 100
@@ -10,7 +14,7 @@ WIDTH = 200
 UCB1 = 1.4
 
 
-def game(gameState, model, device, player, screen, frame, sims) -> int:
+def game(gameState: np.ndarray, model: torch.nn.Module, device: torch.device, player: int, screen: pygame.Surface, frame: pygame.Surface, sims: int) -> int:
     while True:
         if player == -1:
             # Human
