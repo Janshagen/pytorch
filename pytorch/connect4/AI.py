@@ -23,7 +23,7 @@ def MCTSfindMove(rootState: np.ndarray, rootPlayer: int, simulations: int, UCB1:
         # Tree traverse
         while len(current.children) > 0:
             current = current.selectChild(UCB1)
-            makeMove(currentState, current.player, current.move)
+            row = makeMove(currentState, current.player, current.move)
 
             # returns a move if visits exceeds half of total simulations
             if current.visits >= 0.5*simulations:
@@ -31,14 +31,15 @@ def MCTSfindMove(rootState: np.ndarray, rootPlayer: int, simulations: int, UCB1:
                 return current.move
 
         # Expand tree if current has been visited and isnt a terminal node
-        if current.visits > 0 and not gameEnd(currentState).any():
+        if current.visits > 0 and not gameEnd(currentState, row, current.move).any():
             moves = availableMoves(currentState)
             current.makeChildren(current.nextPlayer(), moves)
             current = current.selectChild(UCB1)
-            makeMove(currentState, current.player, current.move)
+            row = makeMove(currentState, current.player, current.move)
 
         # Rollout
-        result = rollout(currentState, current.nextPlayer(), model, device)
+        result = rollout(currentState, current.nextPlayer(),
+                         row, current.move, model, device)
 
         # Backpropagation
         current.backpropagate(result)
@@ -47,10 +48,10 @@ def MCTSfindMove(rootState: np.ndarray, rootPlayer: int, simulations: int, UCB1:
     return root.chooseMove()
 
 
-def rollout(currentState: np.ndarray, currentPlayer: int, model: nn.Module, device: torch.device) -> np.ndarray:
+def rollout(currentState: np.ndarray, currentPlayer: int, row: int, move: int, model: nn.Module, device: torch.device) -> np.ndarray:
     # finds a random move and executes it if possible
     while True:
-        result = gameEnd(currentState)
+        result = gameEnd(currentState, row, move)
         if result.any():
             return result
 
@@ -61,7 +62,7 @@ def rollout(currentState: np.ndarray, currentPlayer: int, model: nn.Module, devi
             return np.array([0, 0])
 
         move = randomMove(moves)
-        makeMove(currentState, currentPlayer, move)
+        row = makeMove(currentState, currentPlayer, move)
         currentPlayer = nextPlayer(currentPlayer)
 
 
@@ -75,10 +76,10 @@ def evaluation(board: np.ndarray, currentPlayer: int, model: nn.Module, device: 
 
 def loadModel():
     FILE = '/home/anton/skola/egen/pytorch/connect4/Connect4model.pth'
-    OUTPUT_SIZE = 3
-    HIDDEN_SIZE1 = HIDDEN_SIZE2 = 72
+    OUT_CHANNELS1, OUT_CHANNELS2, HIDDEN_SIZE1, HIDDEN_SIZE2 = 6, 6, 120, 72
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = Model(HIDDEN_SIZE1, HIDDEN_SIZE2, OUTPUT_SIZE).to(device)
+    model = Model(OUT_CHANNELS1, OUT_CHANNELS2,
+                  HIDDEN_SIZE1, HIDDEN_SIZE2).to(device)
     model.load_state_dict(torch.load(FILE))
     model.to(device)
     model.eval()

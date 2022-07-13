@@ -9,31 +9,31 @@ from interface import (chooseConfig, draw, gameOver, initializeGame,
                        resolveEvent)
 
 # Configurations
-SIMULATIONS = 100
+SIMULATIONS = 10
 WIDTH = 120
 HEIGHT = WIDTH*0.8
 UCB1 = 1.4
 
 
-def game(gameState: np.ndarray, player: int, screen: pygame.Surface, frame: pygame.Surface, sims: int) -> int:
+def game(gameState: np.ndarray, player: int, screen: pygame.Surface, frame: pygame.Surface, sims: int) -> tuple:
     while True:
         if player == 1:
             # Human
             move = resolveEvent(gameState, player, WIDTH)
-            makeMove(gameState, player, move)
+            row = makeMove(gameState, player, move)
             if type(move) == int:
                 player = nextPlayer(player)
 
         elif player == -1:
             # AI
             move = MCTSfindMove(gameState, player, sims, UCB1)
-            makeMove(gameState, player, move)
+            row = makeMove(gameState, player, move)
             player = nextPlayer(player)
             resolveEvent(gameState, 0, WIDTH)
 
         draw(screen, frame, gameState, WIDTH, HEIGHT, move, player)
-        if gameEnd(gameState).any():
-            return
+        if gameEnd(gameState, row, move).any():
+            return (row, move)
 
 
 def main() -> None:
@@ -41,8 +41,8 @@ def main() -> None:
     player = random.choice([1, -1])
     gameState, screen, frame = initializeGame(WIDTH, HEIGHT)
     draw(screen, frame, gameState, WIDTH, HEIGHT)
-    game(gameState, player, screen, frame, sims)
-    if not gameOver(screen, gameEnd(gameState), WIDTH):
+    row, col = game(gameState, player, screen, frame, sims)
+    if not gameOver(screen, gameEnd(gameState, row, col), WIDTH):
         main()
 
 

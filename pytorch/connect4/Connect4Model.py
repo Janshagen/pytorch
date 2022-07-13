@@ -13,13 +13,14 @@ class Model(nn.Module):
         super().__init__()
         self.conv1 = nn.Conv2d(3, out_channels1, 2)
         self.conv2 = nn.Conv2d(out_channels1, out_channels2, 2)
-        self.linear1 = nn.Linear(12*out_channels2, hidden_dim1)
+        self.linear1 = nn.Linear(20*out_channels2, hidden_dim1)
         self.linear2 = nn.Linear(hidden_dim1, hidden_dim2)
         self.linear3 = nn.Linear(hidden_dim2, 3)
 
     def forward(self, x) -> torch.Tensor:
-        x = torch.relu(self.conv(x))
-        x = torch.relu(self.linear1(x.reshape(-1, 1, 72)))
+        x = torch.relu(self.conv1(x))
+        x = torch.relu(self.conv2(x))
+        x = torch.relu(self.linear1(x.reshape(-1, 1, 120)))
         x = torch.relu(self.linear2(x))
         x = self.linear3(x)
         return x

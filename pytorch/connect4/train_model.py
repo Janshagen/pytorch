@@ -1,3 +1,4 @@
+from crypt import methods
 import random
 
 import numpy as np
@@ -9,19 +10,23 @@ from Connect4Model import Model
 from gameplay import availableMoves, gameEnd, makeMove, nextPlayer
 
 # Constants
+# Saving
 LOAD_MODEL = False
 SAVE_MODEL = True
 FILE = '/home/anton/skola/egen/pytorch/connect4/Connect4model.pth'
 
+# Learning
 LEARNING_RATE = 0.01
-N_EPOCHS = 100
+N_EPOCHS = 100_000
 
+# Model architecture
 OUT_CHANNELS1 = 6
-OUT_CHANNELS2 = 3
-HIDDEN_SIZE1 = 72
+OUT_CHANNELS2 = 6
+HIDDEN_SIZE1 = 120
 HIDDEN_SIZE2 = 72
 
-SIMULATIONS = 30
+# MCTS
+SIMULATIONS = 50
 UCB1 = 1.4
 
 
@@ -60,8 +65,8 @@ def train(model: nn.Module, optimizer: torch.optim.Optimizer, loss: nn.CrossEntr
 
         if (epoch + 1) % 100 == 0:
             print(
-                f'Epoch [{epoch+1}/{N_EPOCHS}], Loss: {error.item():.8f},'
-                f'prediction: {torch.softmax(predictions.reshape((numMoves, 3))[-1], 0)[result.item()].item():.4f},'
+                f'Epoch [{epoch+1}/{N_EPOCHS}], Loss: {error.item():.8f}, '
+                f'prediction: {torch.softmax(predictions.reshape((numMoves, 3))[-1], 0)[result.item()].item():.4f}, '
                 f'result: {result.item()}')
 
 
@@ -72,21 +77,18 @@ def training_game(model: nn.Module, device: torch.device) -> 'tuple[torch.Tensor
     game_history[0][2] = torch.ones((6, 7)) * player
     while True:
         move = MCTSfindMove(gameState, player, SIMULATIONS, UCB1)
-        makeMove(gameState, player, move)
+        row = makeMove(gameState, player, move)
         player = nextPlayer(player)
 
         # adding flipped boards to history
-        original = model.board2tensor(gameState, player, device)
-        flipped = model.board2tensor(
-            np.flip(gameState, 1).copy(), player, device)
-        game_history = torch.cat((game_history, original), dim=0)
-        game_history = torch.cat((game_history, flipped), dim=0)
+        game_history = add_to_history(game_history, gameState, player,
+                                      model.board2tensor, device)
 
         # win
-        if gameEnd(gameState).any():
+        if gameEnd(gameState, row, move).any():
             # adding endboard but with other player to make turn
-            game_history = torch.cat((game_history, model.board2tensor(
-                gameState, -1*player, device)), dim=0)
+            game_history = add_to_history(game_history, gameState, -player,
+                                          model.board2tensor, device)
             predictions = model(game_history)
 
             res = [0] if nextPlayer(player) == 1 else [2]
@@ -95,11 +97,19 @@ def training_game(model: nn.Module, device: torch.device) -> 'tuple[torch.Tensor
         # draw
         if not availableMoves(gameState):
             # adding endboard but with other player to make turn
-            game_history = torch.cat((game_history, model.board2tensor(
-                gameState, -1*player, device)), dim=0)
+            game_history = add_to_history(game_history, gameState, -player,
+                                          model.board2tensor, device)
             predictions = model(game_history)
 
             return predictions, torch.tensor([1], device=device)
+
+
+def add_to_history(game_history: torch.Tensor, gameState: np.ndarray, player: int, board2tensor, device: torch.device) -> None:
+    original = board2tensor(gameState, player, device)
+    flipped = board2tensor(np.flip(gameState, 1).copy(), player, device)
+    game_history = torch.cat((game_history, original), dim=0)
+    game_history = torch.cat((game_history, flipped), dim=0)
+    return game_history
 
 
 def validate(model: nn.Module, device: torch.device) -> None:
