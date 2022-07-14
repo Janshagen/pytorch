@@ -55,7 +55,7 @@ def rollout(currentState: np.ndarray, currentPlayer: int, row: int, move: int, m
         if result.any():
             return result
 
-        # return evaluation(currentState, currentPlayer, model, device)
+        return evaluation(currentState, currentPlayer, model, device)
 
         moves = availableMoves(currentState)
         if not moves:
@@ -78,6 +78,7 @@ def loadModel():
     FILE = '/home/anton/skola/egen/pytorch/connect4/Connect4model.pth'
     OUT_CHANNELS1, OUT_CHANNELS2, HIDDEN_SIZE1, HIDDEN_SIZE2 = 6, 6, 120, 72
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cpu')
     model = Model(OUT_CHANNELS1, OUT_CHANNELS2,
                   HIDDEN_SIZE1, HIDDEN_SIZE2).to(device)
     model.load_state_dict(torch.load(FILE))

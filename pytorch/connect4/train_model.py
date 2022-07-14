@@ -11,8 +11,8 @@ from gameplay import availableMoves, gameEnd, makeMove, nextPlayer
 
 # Constants
 # Saving
-LOAD_MODEL = False
-SAVE_MODEL = True
+LOAD_MODEL = True
+SAVE_MODEL = False
 FILE = '/home/anton/skola/egen/pytorch/connect4/Connect4model.pth'
 
 # Learning
@@ -32,18 +32,19 @@ UCB1 = 1.4
 
 def main() -> None:
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cpu')
 
     model = Model(OUT_CHANNELS1, OUT_CHANNELS2,
                   HIDDEN_SIZE1, HIDDEN_SIZE2).to(device)
     if LOAD_MODEL:
-        model.load_state_dict(torch.load(FILE))
+        model.load_state_dict(torch.load(FILE, map_location='cpu'))
         model.to(device)
         model.eval()
 
     optimizer = torch.optim.SGD(model.parameters(), lr=LEARNING_RATE)
     loss = nn.CrossEntropyLoss()
 
-    train(model, optimizer, loss, device)
+    # train(model, optimizer, loss, device)
     validate(model, device)
 
     if SAVE_MODEL:
@@ -65,9 +66,12 @@ def train(model: nn.Module, optimizer: torch.optim.Optimizer, loss: nn.CrossEntr
 
         if (epoch + 1) % 100 == 0:
             print(
-                f'Epoch [{epoch+1}/{N_EPOCHS}], Loss: {error.item():.8f}, '
+                f'Epoch [{epoch+1}/{N_EPOCHS}], Loss: {error.item():.4f}, '
                 f'prediction: {torch.softmax(predictions.reshape((numMoves, 3))[-1], 0)[result.item()].item():.4f}, '
                 f'result: {result.item()}')
+
+        if (epoch+1) % 1000 == 0 and SAVE_MODEL:
+            torch.save(model.state_dict(), FILE)
 
 
 def training_game(model: nn.Module, device: torch.device) -> 'tuple[torch.Tensor]':
@@ -113,34 +117,28 @@ def add_to_history(game_history: torch.Tensor, gameState: np.ndarray, player: in
 
 
 def validate(model: nn.Module, device: torch.device) -> None:
-    win1 = np.array([[1, 1, 1, 0, 0, 0, 0],
-                     [1, 1, 1, 0, 0, 0, 0],
-                     [1, 1, 1, 0, 0, 0, 0],
-                     [1, 1, 1, 0, 0, 0, 0],
-                     [1, 1, 1, 0, 0, 0, 0],
-                     [1, 1, 1, 0, 0, 0, 0]])
+    def game():
+        player = 1
+        gameState = np.zeros((1, 6, 7))
+        game_history = np.zeros((1, 6, 7))
+        while True:
+            move = MCTSfindMove(gameState[0], player, SIMULATIONS, UCB1)
+            row = makeMove(gameState[0], player, move)
+            player = nextPlayer(player)
 
-    draw = np.array([[1, 1, 1, 0, 0, 0, 0],
-                     [1, 1, 1, 0, 0, 0, 0],
-                     [1, 1, 1, 0, 0, 0, 0],
-                     [1, 1, 1, 0, 0, 0, 0],
-                     [1, 1, 1, 0, 0, 0, 0],
-                     [1, 1, 1, 0, 0, 0, 0]])
+            game_history = np.concatenate((game_history, gameState))
 
-    win2 = np.array([[1, 1, 1, 0, 0, 0, 0],
-                     [1, 1, 1, 0, 0, 0, 0],
-                     [1, 1, 1, 0, 0, 0, 0],
-                     [1, 1, 1, 0, 0, 0, 0],
-                     [1, 1, 1, 0, 0, 0, 0],
-                     [1, 1, 1, 0, 0, 0, 0]])
+            # win
+            if gameEnd(gameState[0], row, move).any() or not availableMoves(gameState[0]):
+                return game_history
 
     with torch.no_grad():
-        print('win 1:', torch.softmax(
-            model(model.board2tensor(win1, -1, device)), 2))
-        print('draw:', torch.softmax(
-            model(model.board2tensor(draw, 1, device)), 2))
-        print('win 2:', torch.softmax(
-            model(model.board2tensor(win2, 1, device)), 2))
+        history = game()
+        player = 1
+        for gameState in history:
+            print(gameState, '\n Predictions:',
+                  torch.softmax(model(model.board2tensor(gameState, player, device)), dim=2), '\n')
+            player = nextPlayer(player)
 
 
 if __name__ == '__main__':
