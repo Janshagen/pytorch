@@ -1,4 +1,3 @@
-from crypt import methods
 import random
 
 import numpy as np
@@ -12,8 +11,9 @@ from gameplay import availableMoves, gameEnd, makeMove, nextPlayer
 # Constants
 # Saving
 LOAD_MODEL = True
-SAVE_MODEL = False
-FILE = '/home/anton/skola/egen/pytorch/connect4/Connect4model.pth'
+SAVE_MODEL = True
+LOAD_FILE = '/home/anton/skola/egen/pytorch/connect4/Connect4model100k.pth'
+SAVE_FILE = '/home/anton/skola/egen/pytorch/connect4/Connect4model200k.pth'
 
 # Learning
 LEARNING_RATE = 0.01
@@ -26,7 +26,7 @@ HIDDEN_SIZE1 = 120
 HIDDEN_SIZE2 = 72
 
 # MCTS
-SIMULATIONS = 50
+SIMULATIONS = 100
 UCB1 = 1.4
 
 
@@ -37,23 +37,25 @@ def main() -> None:
     model = Model(OUT_CHANNELS1, OUT_CHANNELS2,
                   HIDDEN_SIZE1, HIDDEN_SIZE2).to(device)
     if LOAD_MODEL:
-        model.load_state_dict(torch.load(FILE, map_location='cpu'))
+        model.load_state_dict(torch.load(LOAD_FILE, map_location='cpu'))
         model.to(device)
         model.eval()
 
     optimizer = torch.optim.SGD(model.parameters(), lr=LEARNING_RATE)
     loss = nn.CrossEntropyLoss()
 
-    # train(model, optimizer, loss, device)
-    validate(model, device)
+    train(model, optimizer, loss, device)
+    # validate(model, device)
 
     if SAVE_MODEL:
-        torch.save(model.state_dict(), FILE)
+        torch.save(model.state_dict(), SAVE_FILE)
 
 
 def train(model: nn.Module, optimizer: torch.optim.Optimizer, loss: nn.CrossEntropyLoss, device: torch.device) -> None:
     for epoch in range(N_EPOCHS):
-        predictions, result = training_game(model, device)
+        game_history, result = training_game(model, device)
+        predictions = model(game_history)
+
         numMoves = predictions.shape[0]
 
         error = loss(predictions.reshape(
@@ -64,14 +66,14 @@ def train(model: nn.Module, optimizer: torch.optim.Optimizer, loss: nn.CrossEntr
         optimizer.step()
         optimizer.zero_grad()
 
-        if (epoch + 1) % 100 == 0:
+        if (epoch+1) % 1000 == 0:
             print(
                 f'Epoch [{epoch+1}/{N_EPOCHS}], Loss: {error.item():.4f}, '
                 f'prediction: {torch.softmax(predictions.reshape((numMoves, 3))[-1], 0)[result.item()].item():.4f}, '
                 f'result: {result.item()}')
 
         if (epoch+1) % 1000 == 0 and SAVE_MODEL:
-            torch.save(model.state_dict(), FILE)
+            torch.save(model.state_dict(), SAVE_FILE)
 
 
 def training_game(model: nn.Module, device: torch.device) -> 'tuple[torch.Tensor]':
@@ -93,19 +95,17 @@ def training_game(model: nn.Module, device: torch.device) -> 'tuple[torch.Tensor
             # adding endboard but with other player to make turn
             game_history = add_to_history(game_history, gameState, -player,
                                           model.board2tensor, device)
-            predictions = model(game_history)
 
             res = [0] if nextPlayer(player) == 1 else [2]
-            return predictions, torch.tensor(res, device=device)
+            return game_history, torch.tensor(res, device=device)
 
         # draw
         if not availableMoves(gameState):
             # adding endboard but with other player to make turn
             game_history = add_to_history(game_history, gameState, -player,
                                           model.board2tensor, device)
-            predictions = model(game_history)
 
-            return predictions, torch.tensor([1], device=device)
+            return game_history, torch.tensor([1], device=device)
 
 
 def add_to_history(game_history: torch.Tensor, gameState: np.ndarray, player: int, board2tensor, device: torch.device) -> None:
