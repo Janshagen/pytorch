@@ -10,8 +10,8 @@ from gameplay import availableMoves, gameEnd, makeMove, nextPlayer
 
 # Constants
 # Saving
-LOAD_MODEL = True
-SAVE_MODEL = True
+LOAD_MODEL = False
+SAVE_MODEL = False
 LOAD_FILE = '/home/anton/skola/egen/pytorch/connect4/Connect4model100k.pth'
 SAVE_FILE = '/home/anton/skola/egen/pytorch/connect4/Connect4model200k.pth'
 

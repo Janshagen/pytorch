@@ -5,3 +5,5 @@ test.py
 MNIST
 photos
 *.pdf
+*/env
+env

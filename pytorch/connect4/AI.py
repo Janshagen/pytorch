@@ -1,13 +1,14 @@
 import numpy as np
 import torch
 import torch.nn as nn
+import time
 
 from Connect4Model import Model
 from gameplay import availableMoves, gameEnd, makeMove, nextPlayer, randomMove
 from Node import Node
 
 
-def MCTSfindMove(rootState: np.ndarray, rootPlayer: int, simulations: int, UCB1: float, model=None, device=None) -> int:
+def MCTSfindMove(rootState: np.ndarray, rootPlayer: int, simulations: int, UCB1: float, model: nn.Module = None, device: torch.device = None, cutoff: bool = False) -> int:
     moves = availableMoves(rootState)
 
     if not moves:
@@ -16,7 +17,12 @@ def MCTSfindMove(rootState: np.ndarray, rootPlayer: int, simulations: int, UCB1:
     root = Node(rootPlayer)
     root.makeChildren(rootPlayer, moves)
 
+    startTime = time.process_time()
     for _ in range(simulations):
+        if time.process_time() - startTime > 10000:
+            printData(root)
+            return root.chooseMove()
+
         currentState = rootState.copy()
         current = root
 
@@ -39,7 +45,7 @@ def MCTSfindMove(rootState: np.ndarray, rootPlayer: int, simulations: int, UCB1:
 
         # Rollout
         result = rollout(currentState, current.nextPlayer(),
-                         row, current.move, model, device)
+                         row, current.move, model, device, cutoff)
 
         # Backpropagation
         current.backpropagate(result)
@@ -48,14 +54,15 @@ def MCTSfindMove(rootState: np.ndarray, rootPlayer: int, simulations: int, UCB1:
     return root.chooseMove()
 
 
-def rollout(currentState: np.ndarray, currentPlayer: int, row: int, move: int, model: nn.Module, device: torch.device) -> np.ndarray:
+def rollout(currentState: np.ndarray, currentPlayer: int, row: int, move: int, model: nn.Module = None, device: torch.device = None, cutoff: bool = False) -> np.ndarray:
     # finds a random move and executes it if possible
     while True:
         result = gameEnd(currentState, row, move)
         if result.any():
             return result
 
-        return evaluation(currentState, currentPlayer, model, device)
+        if cutoff:
+            return evaluation(currentState, currentPlayer, model, device)
 
         moves = availableMoves(currentState)
         if not moves:
@@ -70,18 +77,18 @@ def evaluation(board: np.ndarray, currentPlayer: int, model: nn.Module, device: 
     input = model.board2tensor(board, currentPlayer, device)
     prob = model(input)[0][0]
     prob = torch.softmax(prob, dim=0)
-    eval = currentPlayer * (prob[0]-prob[2]).item()
+    eval = (prob[0]-prob[2]).item()
     return np.array([eval, -eval])
 
 
 def loadModel():
-    FILE = '/home/anton/skola/egen/pytorch/connect4/Connect4model.pth'
+    FILE = '/home/anton/skola/egen/pytorch/connect4/Connect4model200k.pth'
     OUT_CHANNELS1, OUT_CHANNELS2, HIDDEN_SIZE1, HIDDEN_SIZE2 = 6, 6, 120, 72
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     device = torch.device('cpu')
     model = Model(OUT_CHANNELS1, OUT_CHANNELS2,
                   HIDDEN_SIZE1, HIDDEN_SIZE2).to(device)
-    model.load_state_dict(torch.load(FILE))
+    model.load_state_dict(torch.load(FILE, map_location='cpu'))
     model.to(device)
     model.eval()
 
