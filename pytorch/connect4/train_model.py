@@ -4,23 +4,26 @@ import sys
 import numpy as np
 import torch
 import torch.nn as nn
+from torch.utils.data import Dataset, DataLoader
 
 from AI import MCTSfindMove
 from Connect4Model import Model
 from gameplay import availableMoves, gameEnd, makeMove, nextPlayer
 
-# Constants
-# Saving
+
+# Saving/Loading
 LOAD_MODEL = False
-SAVE_MODEL = False
+SAVE_MODEL = True
 LOAD_FILE = '/home/anton/skola/egen/pytorch/connect4/Connect4model100k.pth'
-SAVE_FILE = '/home/anton/skola/egen/pytorch/connect4/Connect4model200k.pth'
-GAMES_FILE = '/home/anton/skola/egen/pytorch/connect4/training_games.npy'
+SAVE_FILE = '/home/anton/skola/egen/pytorch/connect4/Connect4model10V1.pth'
+GAMES_FILE400 = '/home/anton/skola/egen/pytorch/connect4/training_games400.npy'
+GAMES_FILE1 = '/home/anton/skola/egen/pytorch/connect4/training_games1.npy'
 
 # Learning
 LEARNING_RATE = 0.01
-N_EPOCHS = 100_000
-N_GAMES = 10_000
+N_EPOCHS = 100
+BATCH_SIZE = 16
+N_GAMES = 1_000
 
 # Model architecture
 OUT_CHANNELS1 = 6
@@ -29,7 +32,7 @@ HIDDEN_SIZE1 = 120
 HIDDEN_SIZE2 = 72
 
 # MCTS
-SIMULATIONS = 300
+SIMULATIONS = 1
 UCB1 = 1.4
 
 
@@ -47,47 +50,58 @@ def main() -> None:
     optimizer = torch.optim.SGD(model.parameters(), lr=LEARNING_RATE)
     loss = nn.CrossEntropyLoss()
 
-    save_games(GAMES_FILE)
+    dataset = GamesDataset()
+    data_loader = DataLoader(dataset, batch_size=BATCH_SIZE,
+                             num_workers=2, shuffle=True, )
 
-    # if False == False:
-    #     with open(GAMES_FILE, 'rb') as f:
-    #         while True:
-    #             try:
-    #                 a = np.load(f)
-    #                 print(a.shape)
-    #             except ValueError:
-    #                 break
+    # save_games(GAMES_FILE1)
 
-    # train(model, optimizer, loss, device)
+    train(model, data_loader, optimizer, loss)
     # validate(model, device)
 
     if SAVE_MODEL:
         torch.save(model.state_dict(), SAVE_FILE)
 
 
-def train(model: nn.Module, optimizer: torch.optim.Optimizer, loss: nn.CrossEntropyLoss, device: torch.device) -> None:
+class GamesDataset(Dataset):
+    def __init__(self):
+        # with open(GAMES_FILE1, 'rb') as f:
+        #     xy1 = np.load(f)
+        with open(GAMES_FILE400, 'rb') as f:
+            xy400 = np.load(f)
+        xy400 = xy400[:64000]
+
+        self.n_samples = xy400.shape[0]
+        self.data = torch.from_numpy(
+            np.array([x[:3] for x in xy400])).to(torch.float32)
+        self.labels = torch.from_numpy(
+            np.array([x[-1][0][0] for x in xy400])).to(torch.int64)
+
+    def __getitem__(self, index):
+        return self.data[index], self.labels[index]
+
+    def __len__(self):
+        return self.n_samples
+
+
+def train(model: nn.Module, data_loader: DataLoader, optimizer: torch.optim.Optimizer, loss: nn.CrossEntropyLoss) -> None:
     for epoch in range(N_EPOCHS):
-        game_history, result = training_game(model, device)
-        predictions = model(game_history)
+        for i, (data, label) in enumerate(data_loader):
 
-        numMoves = predictions.shape[0]
+            predictions = model(data)
 
-        error = loss(predictions.reshape(
-            (numMoves, 3)), result.expand(numMoves))
+            error = loss(predictions.reshape((BATCH_SIZE, 3)), label)
 
-        error.backward()
+            error.backward()
 
-        optimizer.step()
-        optimizer.zero_grad()
+            optimizer.step()
+            optimizer.zero_grad()
 
-        if (epoch+1) % 1000 == 0:
-            print(
-                f'Epoch [{epoch+1}/{N_EPOCHS}], Loss: {error.item():.4f}, '
-                f'prediction: {torch.softmax(predictions.reshape((numMoves, 3))[-1], 0)[result.item()].item():.4f}, '
-                f'result: {result.item()}')
-
-        if (epoch+1) % 1000 == 0 and SAVE_MODEL:
-            torch.save(model.state_dict(), SAVE_FILE)
+            if (i+1) % 1000 == 0:
+                print(
+                    f'Epoch [{epoch+1}/{N_EPOCHS}], Batch: {i+1}/{len(data_loader)}, Loss: {error.item():.4f}, '
+                    f'prediction: {torch.softmax(predictions.reshape((BATCH_SIZE, 3))[0], dim=0)[label[0].item()].item():.4f}, '
+                    f'result: {label[0].item()}')
 
 
 def save_games(GAMES_FILE):
@@ -98,11 +112,10 @@ def save_games(GAMES_FILE):
         all_games = np.concatenate((all_games, new_game), axis=0)
 
         if (i+1) % (N_GAMES/100) == 0:
-            print(f'Game {i+1}/{N_GAMES} saved')
-            with open(GAMES_FILE, 'wb') as file:
-                np.save(file, all_games)
+            print(f'Game {i+1}/{N_GAMES}')
 
-            all_games = training_game()
+    with open(GAMES_FILE, 'wb') as file:
+        np.save(file, all_games)
 
 
 def training_game() -> np.ndarray:
