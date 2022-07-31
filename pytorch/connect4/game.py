@@ -1,7 +1,6 @@
 import random
+import sys
 
-import numpy as np
-import pygame
 import torch
 
 from AI import MCTSfindMove, loadModel
@@ -15,10 +14,31 @@ WIDTH = 120
 HEIGHT = WIDTH*0.8
 UCB1 = 1.4
 
-FILE = '/home/anton/skola/egen/pytorch/connect4/Connect4model10V1.pth'
+FILE = '/home/anton/skola/egen/pytorch/connect4/models/Connect4model10V1.pth'
 
 
-def game(model: torch.nn.Module, device: torch.device) -> tuple:
+def main() -> None:
+    model1, device = loadModel(FILE)
+    model2 = []
+    for i in range(10):
+        model2.append(
+            loadModel(f'./connect4/models/Connect4model10V1-{i+1}.pth')[0])
+
+    result = [0, 0, 0]
+    with torch.no_grad():
+        for i in range(100):
+            res = validationGame(model1, model2, device)
+            result[res] += 1
+            print(result)
+        print('Wins player 1, Draws, Wins player -1')
+
+        # row, col = game()
+        # if not gameOver(screen, gameEnd(gameState, row, col), WIDTH):
+        #     main()
+
+
+def game() -> tuple:
+    model, device = loadModel(FILE)
     player = random.choice([1, -1])
     gameState, screen, frame = initializeGame(WIDTH, HEIGHT)
     while True:
@@ -49,17 +69,17 @@ def game(model: torch.nn.Module, device: torch.device) -> tuple:
             return (row, move)
 
 
-def validationGame(model: torch.nn.Module, device: torch.device) -> tuple:
+def validationGame(model1: torch.nn.Module, model2: torch.nn.Module, device: torch.device) -> int:
     player = random.choice([1, -1])
     gameState, _, _ = initializeGame(WIDTH, HEIGHT)
     while True:
         if player == 1:
             move = MCTSfindMove(gameState, player, SIMULATIONS,
-                                UCB1, model=None, device=None, cutoff=False)
+                                UCB1, model=model1, device=device, cutoff=True)
 
         elif player == -1:
             move = MCTSfindMove(gameState, player, SIMULATIONS,
-                                UCB1, model=model, device=device, cutoff=True)
+                                UCB1, model=model2, device=device, cutoff=True)
 
         row = makeMove(gameState, player, move)
         player = nextPlayer(player)
@@ -69,22 +89,6 @@ def validationGame(model: torch.nn.Module, device: torch.device) -> tuple:
             return 0 if player == -1 else 2
         elif not availableMoves(gameState):
             return 1
-
-
-def main() -> None:
-    result = [0, 0, 0]
-    with torch.no_grad():
-        model, device = loadModel(file=FILE)
-
-        for i in range(100):
-            res = validationGame(SIMULATIONS, model, device)
-            result[res] += 1
-            print(result)
-        print('Wins player 1, Draws, Wins player -1')
-
-        # row, col = game(gameState, screen, frame, SIMULATIONS, model, device)
-        # if not gameOver(screen, gameEnd(gameState, row, col), WIDTH):
-        #     main()
 
 
 if __name__ == '__main__':

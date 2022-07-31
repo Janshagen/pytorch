@@ -14,14 +14,14 @@ from gameplay import availableMoves, gameEnd, makeMove, nextPlayer
 # Saving/Loading
 LOAD_MODEL = False
 SAVE_MODEL = True
-LOAD_FILE = '/home/anton/skola/egen/pytorch/connect4/Connect4model100k.pth'
-SAVE_FILE = '/home/anton/skola/egen/pytorch/connect4/Connect4model10V1.pth'
+LOAD_FILE = '/home/anton/skola/egen/pytorch/connect4/models/Connect4model100k.pth'
+SAVE_FILE = '/home/anton/skola/egen/pytorch/connect4/models/Connect4model10V1.pth'
 GAMES_FILE400 = '/home/anton/skola/egen/pytorch/connect4/training_games400.npy'
 GAMES_FILE1 = '/home/anton/skola/egen/pytorch/connect4/training_games1.npy'
 
 # Learning
 LEARNING_RATE = 0.01
-N_EPOCHS = 100
+N_EPOCHS = 10
 BATCH_SIZE = 16
 N_GAMES = 1_000
 
@@ -40,27 +40,29 @@ def main() -> None:
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     device = torch.device('cpu')
 
-    model = Model(OUT_CHANNELS1, OUT_CHANNELS2,
-                  HIDDEN_SIZE1, HIDDEN_SIZE2).to(device)
-    if LOAD_MODEL:
-        model.load_state_dict(torch.load(LOAD_FILE, map_location='cpu'))
-        model.to(device)
-        model.eval()
+    for i in range(10):
+        model = Model(OUT_CHANNELS1, OUT_CHANNELS2,
+                      HIDDEN_SIZE1, HIDDEN_SIZE2).to(device)
+        if LOAD_MODEL:
+            model.load_state_dict(torch.load(LOAD_FILE, map_location='cpu'))
+            model.to(device)
+            model.eval()
 
-    optimizer = torch.optim.SGD(model.parameters(), lr=LEARNING_RATE)
-    loss = nn.CrossEntropyLoss()
+        optimizer = torch.optim.SGD(model.parameters(), lr=LEARNING_RATE)
+        loss = nn.CrossEntropyLoss()
 
-    dataset = GamesDataset()
-    data_loader = DataLoader(dataset, batch_size=BATCH_SIZE,
-                             num_workers=2, shuffle=True, )
+        dataset = GamesDataset()
+        data_loader = DataLoader(dataset, batch_size=BATCH_SIZE,
+                                 num_workers=2, shuffle=True)
 
-    # save_games(GAMES_FILE1)
+        # save_games(GAMES_FILE1)
 
-    train(model, data_loader, optimizer, loss)
-    # validate(model, device)
+        train(model, data_loader, optimizer, loss)
+        # validate(model, device)
 
-    if SAVE_MODEL:
-        torch.save(model.state_dict(), SAVE_FILE)
+        if SAVE_MODEL:
+            torch.save(model.state_dict(),
+                       f'./connect4/models/Connect4model10V1-{i+1}.pth')
 
 
 class GamesDataset(Dataset):

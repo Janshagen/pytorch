@@ -74,14 +74,25 @@ def rollout(currentState: np.ndarray, currentPlayer: int, row: int, move: int, m
 
 
 def evaluation(board: np.ndarray, currentPlayer: int, model: nn.Module, device: torch.device) -> np.ndarray:
-    input = model.board2tensor(board, currentPlayer, device)
-    prob = model(input)[0][0]
-    prob = torch.softmax(prob, dim=0)
-    eval = (prob[0]-prob[2]).item()
-    return np.array([eval, -eval])
+    returnValue = 0
+    if type(model) == list:
+        for m in model:
+            input = m.board2tensor(board, currentPlayer, device)
+            prob = m(input)[0][0]
+            prob = torch.softmax(prob, dim=0)
+            returnValue += (prob[0]-prob[2]).item()
+        returnValue /= len(model)
+        return np.array([returnValue, -returnValue])
+
+    else:
+        input = model.board2tensor(board, currentPlayer, device)
+        prob = model(input)[0][0]
+        prob = torch.softmax(prob, dim=0)
+        eval = (prob[0]-prob[2]).item()
+        return np.array([eval, -eval])
 
 
-def loadModel(file: str = '/home/anton/skola/egen/pytorch/connect4/Connect4model200k.pth'):
+def loadModel(file: str = '/home/anton/skola/egen/pytorch/connect4/models/Connect4model200k.pth'):
     OUT_CHANNELS1, OUT_CHANNELS2, HIDDEN_SIZE1, HIDDEN_SIZE2 = 6, 6, 120, 72
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     device = torch.device('cpu')
