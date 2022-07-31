@@ -2,6 +2,8 @@ import random
 import sys
 
 import torch
+import numpy as np
+import pygame
 
 from AI import MCTSfindMove, loadModel
 from gameplay import availableMoves, gameEnd, makeMove, nextPlayer
@@ -25,22 +27,21 @@ def main() -> None:
             loadModel(f'./connect4/models/Connect4model10V1-{i+1}.pth')[0])
 
     result = [0, 0, 0]
-    with torch.no_grad():
-        for i in range(100):
-            res = validationGame(model1, model2, device)
-            result[res] += 1
-            print(result)
-        print('Wins player 1, Draws, Wins player -1')
+    # with torch.no_grad():
+    #     for i in range(100):
+    #         res = validationGame(model1, model2, device)
+    #         result[res] += 1
+    #         print(result)
+    #     print('Wins player 1, Draws, Wins player -1')
 
-        # row, col = game()
-        # if not gameOver(screen, gameEnd(gameState, row, col), WIDTH):
-        #     main()
-
-
-def game() -> tuple:
-    model, device = loadModel(FILE)
-    player = random.choice([1, -1])
     gameState, screen, frame = initializeGame(WIDTH, HEIGHT)
+    row, col = game(gameState, screen, frame, model2, device)
+    if not gameOver(screen, gameEnd(gameState, row, col), WIDTH):
+        main()
+
+
+def game(gameState: np.ndarray, screen: pygame.Surface, frame: pygame.Surface, model: torch.nn.Module, device: torch.device) -> tuple:
+    player = random.choice([1, -1])
     while True:
         if player == 1:
             # Human
@@ -51,15 +52,15 @@ def game() -> tuple:
 
         elif player == -1:
             # Neural network
-            print('Prediction after human move:', torch.softmax(model(model.board2tensor(
-                gameState, player, device))[0][0], dim=0))
+            # print('Prediction after human move:', torch.softmax(model(model.board2tensor(
+            #    gameState, player, device))[0][0], dim=0))
             move = MCTSfindMove(gameState, player, SIMULATIONS,
                                 UCB1, model, device, cutoff=True)
             row = makeMove(gameState, player, move)
             player = nextPlayer(player)
             resolveEvent(gameState, 0, WIDTH)
-            print(f'Prediction after AIs move:', torch.softmax(model(model.board2tensor(
-                gameState, player, device))[0][0], dim=0))
+            # print(f'Prediction after AIs move:', torch.softmax(model(model.board2tensor(
+            #    gameState, player, device))[0][0], dim=0))
 
         draw(screen, frame, gameState, WIDTH, HEIGHT, move, player)
         if gameEnd(gameState, row, move).any():
@@ -71,7 +72,7 @@ def game() -> tuple:
 
 def validationGame(model1: torch.nn.Module, model2: torch.nn.Module, device: torch.device) -> int:
     player = random.choice([1, -1])
-    gameState, _, _ = initializeGame(WIDTH, HEIGHT)
+    gameState = np.zeros((6, 7))
     while True:
         if player == 1:
             move = MCTSfindMove(gameState, player, SIMULATIONS,
