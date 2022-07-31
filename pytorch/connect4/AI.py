@@ -81,13 +81,13 @@ def evaluation(board: np.ndarray, currentPlayer: int, model: nn.Module, device: 
     return np.array([eval, -eval])
 
 
-def loadModel(FILE:str='/home/anton/skola/egen/pytorch/connect4/Connect4model200k.pth'):
+def loadModel(file: str = '/home/anton/skola/egen/pytorch/connect4/Connect4model200k.pth'):
     OUT_CHANNELS1, OUT_CHANNELS2, HIDDEN_SIZE1, HIDDEN_SIZE2 = 6, 6, 120, 72
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     device = torch.device('cpu')
     model = Model(OUT_CHANNELS1, OUT_CHANNELS2,
                   HIDDEN_SIZE1, HIDDEN_SIZE2).to(device)
-    model.load_state_dict(torch.load(FILE, map_location='cpu'))
+    model.load_state_dict(torch.load(file, map_location='cpu'))
     model.to(device)
     model.eval()
 

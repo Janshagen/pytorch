@@ -6,26 +6,23 @@ import torch
 
 from AI import MCTSfindMove, loadModel
 from gameplay import availableMoves, gameEnd, makeMove, nextPlayer
-from interface import (chooseConfig, draw, gameOver, initializeGame,
+from interface import (draw, gameOver, initializeGame,
                        resolveEvent)
 
 # Configurations
-SIMULATIONS = 10000
+SIMULATIONS = 1000
 WIDTH = 120
 HEIGHT = WIDTH*0.8
 UCB1 = 1.4
 
+FILE = '/home/anton/skola/egen/pytorch/connect4/Connect4model10V1.pth'
 
-def game(gameState: np.ndarray, player: int, screen: pygame.Surface, frame: pygame.Surface, sims: int, model: torch.nn.Module, device: torch.device) -> tuple:
+
+def game(model: torch.nn.Module, device: torch.device) -> tuple:
+    player = random.choice([1, -1])
+    gameState, screen, frame = initializeGame(WIDTH, HEIGHT)
     while True:
         if player == 1:
-            # MCTS
-            # move = MCTSfindMove(gameState, player, sims,
-            #                     UCB1, model, device, cutoff=False)
-            # row = makeMove(gameState, player, move)
-            # player = nextPlayer(player)
-            # resolveEvent(gameState, 0, WIDTH)
-
             # Human
             move = resolveEvent(gameState, player, WIDTH)
             row = makeMove(gameState, player, move)
@@ -36,7 +33,7 @@ def game(gameState: np.ndarray, player: int, screen: pygame.Surface, frame: pyga
             # Neural network
             print('Prediction after human move:', torch.softmax(model(model.board2tensor(
                 gameState, player, device))[0][0], dim=0))
-            move = MCTSfindMove(gameState, player, sims,
+            move = MCTSfindMove(gameState, player, SIMULATIONS,
                                 UCB1, model, device, cutoff=True)
             row = makeMove(gameState, player, move)
             player = nextPlayer(player)
@@ -46,34 +43,48 @@ def game(gameState: np.ndarray, player: int, screen: pygame.Surface, frame: pyga
 
         draw(screen, frame, gameState, WIDTH, HEIGHT, move, player)
         if gameEnd(gameState, row, move).any():
-            # return 0 if player == -1 else 2
-
             return (row, move)
 
         if not availableMoves(gameState):
-            # return 1
-
             return (row, move)
+
+
+def validationGame(model: torch.nn.Module, device: torch.device) -> tuple:
+    player = random.choice([1, -1])
+    gameState, _, _ = initializeGame(WIDTH, HEIGHT)
+    while True:
+        if player == 1:
+            move = MCTSfindMove(gameState, player, SIMULATIONS,
+                                UCB1, model=None, device=None, cutoff=False)
+
+        elif player == -1:
+            move = MCTSfindMove(gameState, player, SIMULATIONS,
+                                UCB1, model=model, device=device, cutoff=True)
+
+        row = makeMove(gameState, player, move)
+        player = nextPlayer(player)
+        resolveEvent(gameState, 0, WIDTH)
+
+        if gameEnd(gameState, row, move).any():
+            return 0 if player == -1 else 2
+        elif not availableMoves(gameState):
+            return 1
 
 
 def main() -> None:
     result = [0, 0, 0]
-    sims = chooseConfig(SIMULATIONS)
-    player = random.choice([1, -1])
-    gameState, screen, frame = initializeGame(WIDTH, HEIGHT)
-    draw(screen, frame, gameState, WIDTH, HEIGHT)
     with torch.no_grad():
-        model, device = loadModel()
+        model, device = loadModel(file=FILE)
 
-        # for i in range(100):
-        #     gameState, screen, frame = initializeGame(WIDTH, HEIGHT)
-        #     res = game(gameState, player, screen, frame, sims, model, device)
-        #     result[res] += 1
-        #     print(result)
+        for i in range(100):
+            res = validationGame(SIMULATIONS, model, device)
+            result[res] += 1
+            print(result)
+        print('Wins player 1, Draws, Wins player -1')
 
-        row, col = game(gameState, player, screen, frame, sims, model, device)
-        if not gameOver(screen, gameEnd(gameState, row, col), WIDTH):
-            main()
+        # row, col = game(gameState, screen, frame, SIMULATIONS, model, device)
+        # if not gameOver(screen, gameEnd(gameState, row, col), WIDTH):
+        #     main()
 
 
 if __name__ == '__main__':
