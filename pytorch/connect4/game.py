@@ -42,6 +42,7 @@ def main() -> None:
 
 def game(gameState: np.ndarray, screen: pygame.Surface, frame: pygame.Surface, model: torch.nn.Module, device: torch.device) -> tuple:
     player = random.choice([1, -1])
+    draw(screen, frame, gameState, WIDTH, HEIGHT)
     while True:
         if player == 1:
             # Human
@@ -93,4 +94,5 @@ def validationGame(model1: torch.nn.Module, model2: torch.nn.Module, device: tor
 
 
 if __name__ == '__main__':
-    main()
+    with torch.no_grad():
+        main()
