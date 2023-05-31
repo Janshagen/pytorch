@@ -1,0 +1,14 @@
+{
+    "python.analysis.typeCheckingMode": "basic",
+    "cSpell.words": [
+        "blit",
+        "dtype",
+        "endboard",
+        "gamestate",
+        "KEYDOWN",
+        "MOUSEBUTTONDOWN",
+        "optim",
+        "rollouts",
+        "vinstprocent"
+    ]
+}

@@ -13,7 +13,7 @@ from interface import (draw, gameOver, initializeGame,
 # Configurations
 SIMULATIONS = 1000
 WIDTH = 120
-HEIGHT = WIDTH*0.8
+HEIGHT = int(WIDTH*0.8)
 UCB1 = 1.4
 
 FILE = '/home/anton/skola/egen/pytorch/connect4/models/Connect4model10V1.pth'
