@@ -1,7 +1,7 @@
-import torch
-import torch.nn as nn
 import numpy as np
 import numpy.typing as npt
+import torch
+import torch.nn as nn
 
 board_type = npt.NDArray[np.int8]
 
@@ -12,15 +12,19 @@ class LinearModel(nn.Module):
     represents player 1 positions and second layer represents
     player -1 positions."""
 
-    def __init__(self, input_dim, hidden_dim1, hidden_dim2, hidden_dim3,
-                 output_dim) -> None:
+    def __init__(self, input_dim: int, hidden_dim1: int, hidden_dim2: int,
+                 hidden_dim3: int, output_dim: int) -> None:
         super().__init__()
         self.input = nn.Linear(input_dim, hidden_dim1)
         self.hidden1 = nn.Linear(hidden_dim1, hidden_dim2)
         self.hidden2 = nn.Linear(hidden_dim2, hidden_dim3)
         self.output = nn.Linear(hidden_dim3, output_dim, bias=False)
 
-    def forward(self, x) -> torch.Tensor:
+    def forward(self, board: board_type | torch.Tensor, player: int,
+                device: torch.device) -> torch.Tensor:
+        x = board
+        if not isinstance(board, torch.Tensor):
+            x = self.board2tensor(board, player, device)
         x = torch.relu(self.input(x))
         x = torch.relu(self.hidden1(x))
         x = torch.relu(self.hidden2(x))
@@ -42,14 +46,19 @@ class ConvModel(nn.Module):
     first layer represents player 1, second layer represents player -1,
     and third layer is filled with the value of player to make a move."""
 
-    def __init__(self, hidden_dim1, hidden_dim2, output_dim) -> None:
+    def __init__(self, hidden_dim1: int, hidden_dim2: int,
+                 output_dim: int) -> None:
         super().__init__()
         self.conv = nn.Conv2d(3, 3, 2)
         self.linear1 = nn.Linear(12, hidden_dim1)
         self.linear2 = nn.Linear(hidden_dim1, hidden_dim2)
         self.linear3 = nn.Linear(hidden_dim2, output_dim)
 
-    def forward(self, x) -> torch.Tensor:
+    def forward(self, board: board_type | torch.Tensor, player: int,
+                device: torch.device) -> torch.Tensor:
+        x = board
+        if not isinstance(board, torch.Tensor):
+            x = self.board2tensor(board, player, device)
         x = torch.relu(self.conv(x))
         x = torch.relu(self.linear1(x.reshape(-1, 1, 12)))
         x = torch.relu(self.linear2(x))

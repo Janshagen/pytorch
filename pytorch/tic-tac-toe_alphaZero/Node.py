@@ -1,6 +1,7 @@
 import random
-import numpy as np
 from typing import Optional
+
+import numpy as np
 
 
 class Node:
@@ -13,8 +14,9 @@ class Node:
         self.move: tuple[int, int] = move
         self.player: int = player      # self.player makes self.move
 
-    def makeChildren(self, player, moves) -> None:
+    def makeChildren(self, moves: list[tuple[int, int]]) -> None:
         """Makes a child node for every possible move"""
+        player = self.nextPlayer()
         for move in moves:
             child = Node(player, move, parent=self)
             self.children.append(child)
@@ -43,12 +45,12 @@ class Node:
         maxIndex = np.argmax(UCB1values)
         return self.children[maxIndex]
 
-    def backpropagate(self, result) -> None:
+    def backpropagate(self, result: float) -> None:
         """Updates value and visits according to result"""
         instance = self
         while instance is not None:
             instance.visits += 1
-            instance.value += result[0] if instance.player == 1 else result[1]
+            instance.value += result if instance.player == 1 else -result
             instance = instance.parent
 
     def chooseMove(self) -> tuple[int, int]:

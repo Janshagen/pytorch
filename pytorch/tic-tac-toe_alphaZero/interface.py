@@ -1,11 +1,9 @@
 import sys
+from typing import Optional
 
 import numpy as np
 import numpy.typing as npt
-
 import pygame
-from typing import Optional
-
 from gameplay import availableMoves
 
 WHITE = (230, 230, 230)
@@ -16,10 +14,9 @@ RED = (220, 20, 60)
 board_type = npt.NDArray[np.int8]
 
 
-def initializeGame(WIDTH: int
-                   ) -> tuple[board_type,
-                              pygame.surface.Surface, pygame.Surface]:
-    gameState = np.zeros((3, 3), dtype=np.int8)
+def initializeGame(WIDTH: int) -> \
+        tuple[board_type, pygame.surface.Surface, pygame.Surface]:
+    board = np.zeros((3, 3), dtype=np.int8)
 
     pygame.init()
     screen = pygame.display.set_mode((3 * WIDTH, 3 * WIDTH))
@@ -31,7 +28,7 @@ def initializeGame(WIDTH: int
                 frame, WHITE, (i*WIDTH+3, j*WIDTH+3, WIDTH-6, WIDTH-6))
     frame.set_colorkey(WHITE)
 
-    return gameState, screen, frame
+    return board, screen, frame
 
 
 def draw(screen: pygame.surface.Surface, frame: pygame.Surface,
@@ -55,31 +52,6 @@ def drawPieces(screen: pygame.surface.Surface, board: board_type, player,
             elif spot == -1:
                 pygame.draw.circle(screen, RED,
                                    int2coord(j, i, WIDTH), WIDTH // 3)
-
-    # color = PURPLE if player == 1 else RED
-    # # moving piece
-    # mPos = mousePos(WIDTH)
-    # mPos = mPos if mPos != (None, None) else (1, 1)
-    # pygame.draw.circle(screen, color,
-    #                    int2coord(mPos[1], mPos[0], WIDTH), WIDTH // 3)
-
-
-# def animatePiece(screen: pygame.Surface, frame: pygame.Surface,
-#                   board: np.ndarray, col: int, player: int, w: int, h: int):
-#     for row in range(6):
-#         if board[row][col] != 0:
-#             break
-
-#     color = RED if player == 1 else PURPLE
-#     y = 0
-#     while y < (row+1)*h:
-#         screen.fill(WHITE)
-#         drawPieces(screen, board, player, w, h, (row, col))
-#         pygame.draw.circle(screen, color,
-#                            (w*col + w/2, y+h/2), w // 3)
-#         screen.blit(frame, (0, h))
-#         y += h*0.012
-#         pygame.display.flip()
 
 
 def resolveEvent(board: board_type, player: int,

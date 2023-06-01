@@ -33,6 +33,8 @@ def game(gameState: np.ndarray, model: torch.nn.Module, device: torch.device, pl
 
             print(torch.softmax(model(model.board2tensor(
                 gameState, player, device)), dim=2))
+            print(torch.softmax(model(model.board2tensor(
+                gameState, -player, device)), dim=2))
 
         draw(screen, frame, gameState, WIDTH, move, player)
 

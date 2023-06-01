@@ -3,14 +3,14 @@ import random
 import numpy as np
 import torch
 import torch.nn as nn
-
 from AI import MCTSfindMove
 from gameplay import availableMoves, gameEnd, makeMove, nextPlayer
-from TicTacToeModel import ConvModel, LinearModel
+from MCTSData import MCTSData
+from TicTacToeModel import ConvModel
 
 # Constants
 LOAD_MODEL = True
-SAVE_MODEL = True
+SAVE_MODEL = False
 FILE = '/home/anton/skola/egen/pytorch/tic-tac-toe/TicTacToeModelConv.pth'
 
 LEARNING_RATE = 0.01
@@ -24,12 +24,10 @@ SIMULATIONS = 30
 UCB1 = 1.4
 
 
-def train(model: LinearModel | ConvModel,
-          optimizer: torch.optim.Optimizer,
-          loss: nn.modules.loss.CrossEntropyLoss,
-          device: torch.device) -> None:
+def train(data: MCTSData, optimizer: torch.optim.Optimizer,
+          loss: nn.modules.loss.CrossEntropyLoss) -> None:
     for epoch in range(N_EPOCHS):
-        predictions, result = game(model, device)
+        predictions, result = game(data)
         numMoves = predictions.shape[0]
 
         error = loss(predictions.reshape(
@@ -48,44 +46,41 @@ def train(model: LinearModel | ConvModel,
                 f'prediction: {prediction:.4f}, result: {result.item()}')
 
 
-def game(model: LinearModel | ConvModel,
-         device: torch.device) -> tuple[torch.Tensor, torch.Tensor]:
-    player = random.choice([1, -1])
-    gameState = np.zeros((3, 3), dtype=np.int8)
-    input = torch.zeros((1, 3, 3, 3), device=device)
-    input[0][2] = torch.ones((3, 3)) * player
+def game(data: MCTSData) -> tuple[torch.Tensor, torch.Tensor]:
+    input = torch.zeros((1, 3, 3, 3), device=data.device)
+    input[0][2] = torch.ones((3, 3)) * data.player
     while True:
-        move = MCTSfindMove(gameState, player, SIMULATIONS, UCB1)
-        makeMove(gameState, player, move)
-        player = nextPlayer(player)
+        move = MCTSfindMove(data)
+        makeMove(data.board, data.player, move)
+        data.player = nextPlayer(data.player)
 
         # adding rotated boards
         for i in range(4):
-            permutation = model.board2tensor(
-                gameState, player, device).rot90(k=i, dims=(2, 3))
+            permutation = data.model.board2tensor(
+                data.board, data.player, data.device).rot90(k=i, dims=(2, 3))
             input = torch.cat((input, permutation), dim=0)
 
         # win
-        if gameEnd(gameState).any():
+        if gameEnd(data.board):
             # adding endboard but with other player to make turn
-            input = torch.cat((input, model.board2tensor(
-                gameState, -1*player, device)), dim=0)
-            predictions = model(input)
+            input = torch.cat((input, data.model.board2tensor(
+                data.board, -1*data.player, data.device)), dim=0)
+            predictions = data.model(input, -1*data.player, data.device)
 
-            res = [0] if nextPlayer(player) == 1 else [2]
-            return predictions, torch.tensor(res, device=device)
+            res = [0] if nextPlayer(data.player) == 1 else [2]
+            return predictions, torch.tensor(res, device=data.device)
 
         # draw
-        if not availableMoves(gameState):
+        if not availableMoves(data.board):
             # adding endboard but with other player to make turn
-            input = torch.cat((input, model.board2tensor(
-                gameState, -1*player, device)), dim=0)
-            predictions = model(input)
+            input = torch.cat((input, data.model.board2tensor(
+                data.board, -1*data.player, data.device)), dim=0)
+            predictions = data.model(input, -1*data.player, data.device)
 
-            return predictions, torch.tensor([1], device=device)
+            return predictions, torch.tensor([1], device=data.device)
 
 
-def validate(model, device):
+def validate(data: MCTSData) -> None:
     win1 = np.array([[1, 1, 1],
                      [-1, 0, -1],
                      [-1, 0, 0]])
@@ -100,15 +95,17 @@ def validate(model, device):
 
     with torch.no_grad():
         print('win 1:', torch.softmax(
-            model(model.board2tensor(win1, -1, device)), 2))
+            data.model(win1, -1, data.device), 2))
         print('draw:', torch.softmax(
-            model(model.board2tensor(draw, 1, device)), 2))
+            data.model(draw, 1, data.device), 2))
         print('win 2:', torch.softmax(
-            model(model.board2tensor(win2, 1, device)), 2))
+            data.model(win2, 1, data.device), 2))
 
 
 def main() -> None:
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    player = random.choice([1, -1])
+    board = np.zeros((3, 3), dtype=np.int8)
 
     model = ConvModel(HIDDEN_SIZE1, HIDDEN_SIZE2, OUTPUT_SIZE).to(device)
     if LOAD_MODEL:
@@ -116,11 +113,13 @@ def main() -> None:
         model.to(device)
         model.eval()
 
+    data = MCTSData(board, player, UCB1, model, device, sim_number=SIMULATIONS)
+
     optimizer = torch.optim.SGD(model.parameters(), lr=LEARNING_RATE)
     loss = nn.CrossEntropyLoss()
 
-    train(model, optimizer, loss, device)
-    validate(model, device)
+    train(data, optimizer, loss)
+    validate(data)
 
     if SAVE_MODEL:
         torch.save(model.state_dict(), FILE)

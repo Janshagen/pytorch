@@ -1,12 +1,10 @@
-import numpy as np
 import pygame
 import torch
-
-from AI import (bestEvaluationFindMove, loadConvModel)
+from AI import MCTSfindMove, loadConvModel
 from gameplay import availableMoves, gameEnd, makeMove, nextPlayer
 from interface import (chooseConfig, draw, gameOver, initializeGame,
                        resolveEvent)
-from TicTacToeModel import LinearModel, ConvModel
+from MCTSData import MCTSData
 
 # Configurations
 SIMULATIONS = 100
@@ -14,45 +12,46 @@ WIDTH = 200
 UCB1 = 1.4
 
 
-def game(gameState: np.ndarray, model: LinearModel | ConvModel,
-         device: torch.device, player: int, screen: pygame.surface.Surface,
-         frame: pygame.Surface, sims: int) -> int:
+def game(data: MCTSData, screen: pygame.surface.Surface,
+         frame: pygame.Surface) -> int:
     while True:
-        if player == -1:
+        if data.player == -1:
             # Human
-            move = resolveEvent(gameState, player, WIDTH)
-            makeMove(gameState, player, move)
+            move = resolveEvent(data.board, data.player, WIDTH)
+            makeMove(data.board, data.player, move)
             if move:
-                player = nextPlayer(player)
+                data.player = nextPlayer(data.player)
 
-        elif player == 1:
+        elif data.player == 1:
             # AI
-            # move = MCTSfindMove(gameState, player, sims, UCB1, model, device)
-            move = bestEvaluationFindMove(gameState, player, model, device)
-            makeMove(gameState, player, move)
-            player = nextPlayer(player)
-            resolveEvent(gameState, 0, WIDTH)
+            move = MCTSfindMove(data)
+            # move = bestEvaluationFindMove(data, model, device)
+            makeMove(data.board, data.player, move)
+            data.player = nextPlayer(data.player)
+            resolveEvent(data.board, 0, WIDTH)
 
-            print(torch.softmax(
-                model(model.board2tensor(gameState, player, device)), dim=2))
+            print(torch.softmax(data.model(
+                data.board, data.player, data.device), dim=2))
 
-        draw(screen, frame, gameState, WIDTH, player)
+        draw(screen, frame, data.board, WIDTH, data.player)
 
-        if gameEnd(gameState).any():
-            return nextPlayer(player)
+        if gameEnd(data.board):
+            return nextPlayer(data.player)
 
-        if not availableMoves(gameState):
+        if not availableMoves(data.board):
             return 0
 
 
 def main() -> None:
     sims = chooseConfig(SIMULATIONS)
     player = -1
-    gameState, screen, frame = initializeGame(WIDTH)
-    draw(screen, frame, gameState, WIDTH)
+    board, screen, frame = initializeGame(WIDTH)
+    draw(screen, frame, board, WIDTH)
     model, device = loadConvModel()
 
-    result = game(gameState, model, device, player, screen, frame, sims)
+    data = MCTSData(board, player, UCB1, model, device, sim_number=sims)
+
+    result = game(data, screen, frame)
     if not gameOver(screen, result, WIDTH):
         main()
 
