@@ -3,7 +3,7 @@ from typing import Optional
 import numpy as np
 import numpy.typing as npt
 import torch
-from gameplay import availableMoves, gameEnd, makeMove
+from gameplay import (available_moves, make_move, next_player)
 from MCTSData import MCTSData
 from Node import Node
 from TicTacToeModel import ConvModel, LinearModel
@@ -11,23 +11,22 @@ from TicTacToeModel import ConvModel, LinearModel
 board_type = npt.NDArray[np.int8]
 
 
-def MCTSfindMove(data: MCTSData) -> Optional[tuple[int, int]]:
-    moves = availableMoves(data.board)
+def MCTS_find_move(data: MCTSData) -> Optional[tuple[int, int]]:
+    moves = available_moves(data.board)
 
     if not moves:
         return None
 
-    root = Node(data.player)
-    root.makeChildren(moves)
+    data.root = Node(data.board, next_player(data.player))
+    data.root.make_children()
+    data.root.player = data.root.next_player()
 
     for _ in range(data.sim_number):
-        current_board = data.board.copy()
-        current = root
+        current = data.root
 
         # Tree traverse
         while len(current.children) > 0:
-            current = current.selectChild(data.UCB1)
-            makeMove(current_board, current.player, current.move)
+            current = current.select_child(data.UCB1)
 
             # returns a move if visits exceeds half of total simulations
             if current.visits >= 0.5*data.sim_number:
@@ -35,49 +34,46 @@ def MCTSfindMove(data: MCTSData) -> Optional[tuple[int, int]]:
                 return current.move
 
         # Expand tree if current has been visited and isn't a terminal node
-        if current.visits > 0 and not gameEnd(current_board):
-            moves = availableMoves(current_board)
-            current.makeChildren(moves)
-            current = current.selectChild(data.UCB1)
-            makeMove(current_board, current.player, current.move)
+        if current.visits > 0 and not current.terminal_node:
+            current.make_children()
+            current = current.select_child(data.UCB1)
 
         # Rollout/Evaluation
-        # evaluation = evaluationLinear(data, current_board,
-        # current.nextPlayer())
-        evaluation = evaluationConv(data, current_board, current.nextPlayer())
+        evaluation = current.result if current.terminal_node else \
+            evaluation_conv(data, current)
 
         # Backpropagation
         current.backpropagate(evaluation)
 
     # printData(root)
-    return root.chooseMove()
+    return data.root.choose_move()
 
 
-def evaluationLinear(data: MCTSData, board: board_type,
-                     player: int) -> float:
+def evaluation_linear(data: MCTSData, board: board_type,
+                      player: int) -> float:
     prob = data.model(board, player, data.device).item()
     # prob - (1-prob) = 2*prob-1
     prob = 2*prob-1
     return prob
 
 
-def evaluationConv(data: MCTSData, board: board_type,
-                   player: int) -> float:
-    prob = data.model(board, player, data.device)[0][0]
+def evaluation_conv(data: MCTSData, node: Node) -> float:
+    prob = data.model(node.board, node.next_player(), data.device)[0][0]
     prob = torch.softmax(prob, dim=0)
-    eval = player * (prob[0]-prob[2]).item()
+    eval = np.tanh((prob[0]-prob[2]).item())
+    print(eval)
     return eval
 
 
-def bestEvaluationFindMove(data: MCTSData) -> tuple[int, int]:
+def best_evaluation_find_move(data: MCTSData) -> tuple[int, int]:
     """Chooses move which maximizes players evaluation, and minimizes
     opponents evaluation, of gamestate after that move is made."""
-    moves = availableMoves(data.board)
+    moves = available_moves(data.board)
     evaluations = np.empty(len(moves))
     for i, move in enumerate(moves):
-        board_ = data.board.copy()
-        makeMove(board_, data.player, move)
-        eval = data.model(board_, data.player, data.device)[0][0]
+        board = data.board.copy()
+        make_move(board, data.player, move)
+        eval = data.model(board, next_player(data.player), data.device)[0][0]
         eval = torch.softmax(eval, dim=0)
         evaluations[i] = data.player * (eval[0] - eval[2]).item()
     maxIndex = np.argmax(evaluations)
@@ -85,7 +81,7 @@ def bestEvaluationFindMove(data: MCTSData) -> tuple[int, int]:
     return moves[maxIndex]
 
 
-def loadLinearModel():
+def load_linear_model():
     FILE = '/home/anton/skola/egen/pytorch/tic-tac-toe/TicTacToeModel.pth'
     INPUT_SIZE = 18
     OUTPUT_SIZE = 1
@@ -100,7 +96,7 @@ def loadLinearModel():
     return model, device
 
 
-def loadConvModel():
+def load_conv_model():
     FILE = '/home/anton/skola/egen/pytorch/tic-tac-toe/TicTacToeModelConv.pth'
     OUTPUT_SIZE = 3
     HIDDEN_SIZE1 = HIDDEN_SIZE2 = 72
@@ -113,7 +109,7 @@ def loadConvModel():
     return model, device
 
 
-def printData(root: Node) -> None:
+def print_data(root: Node) -> None:
     visits, val, p = root.visits, root.value, root.player
     print(
         f'root; player: {p}, rollouts: {visits}, value: {round(val*1, 2)}',

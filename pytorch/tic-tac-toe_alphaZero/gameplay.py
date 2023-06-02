@@ -7,7 +7,7 @@ import numpy.typing as npt
 board_type = npt.NDArray[np.int8]
 
 
-def availableMoves(board: board_type) -> list[tuple[int, int]]:
+def available_moves(board: board_type) -> list[tuple[int, int]]:
     returnMoves = []
     for i, row in enumerate(board):
         for j, col in enumerate(row):
@@ -16,20 +16,24 @@ def availableMoves(board: board_type) -> list[tuple[int, int]]:
     return returnMoves
 
 
-def makeMove(board: board_type, player: int,
-             move: Optional[tuple[int, int]]) -> None:
+def make_move(board: board_type, player: int,
+              move: Optional[tuple[int, int]]) -> None:
     if not move:
         return
     board[move[0]][move[1]] = player
 
 
-def randomMove(moves: list[tuple[int, int]]) -> tuple[int, int]:
+def random_move(moves: list[tuple[int, int]]) -> tuple[int, int]:
     return random.choice(moves)
 
 
-def gameEnd(board: board_type) -> int:
+def game_result(board: board_type) -> int:
+    """Returns 2 if not over"""
     COLUMN_COUNT = 3
     ROW_COUNT = 3
+
+    if not (board == 0).any():
+        return 0
 
     # Check horizontal locations for win
     for r in range(ROW_COUNT):
@@ -49,7 +53,7 @@ def gameEnd(board: board_type) -> int:
 
     middle = board[1][1]
     if middle == 0:
-        return 0
+        return 2
 
     # Check positively sloped diagonals
     if board[0][0] == middle == board[2][2]:
@@ -59,7 +63,13 @@ def gameEnd(board: board_type) -> int:
     if board[0][2] == middle == board[2][0]:
         return winner(middle)
 
-    return 0
+    return 2
+
+
+def game_end(board: board_type) -> bool:
+    if game_result(board) == 2:
+        return False
+    return True
 
 
 def winner(player: int) -> int:
@@ -68,5 +78,5 @@ def winner(player: int) -> int:
     return 0
 
 
-def nextPlayer(player: int) -> int:
-    return -1 if player == 1 else 1
+def next_player(player: int) -> int:
+    return -1 * player

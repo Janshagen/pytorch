@@ -1,13 +1,14 @@
 import pygame
 import torch
-from AI import MCTSfindMove, loadConvModel
-from gameplay import availableMoves, gameEnd, makeMove, nextPlayer
+from AI import MCTS_find_move, load_conv_model
+from gameplay import (available_moves, game_end, game_result, make_move,
+                      next_player)
 from interface import (chooseConfig, draw, gameOver, initializeGame,
                        resolveEvent)
 from MCTSData import MCTSData
 
 # Configurations
-SIMULATIONS = 100
+SIMULATIONS = 10
 WIDTH = 200
 UCB1 = 1.4
 
@@ -18,16 +19,16 @@ def game(data: MCTSData, screen: pygame.surface.Surface,
         if data.player == -1:
             # Human
             move = resolveEvent(data.board, data.player, WIDTH)
-            makeMove(data.board, data.player, move)
+            make_move(data.board, data.player, move)
             if move:
-                data.player = nextPlayer(data.player)
+                data.player = next_player(data.player)
 
         elif data.player == 1:
             # AI
-            move = MCTSfindMove(data)
-            # move = bestEvaluationFindMove(data, model, device)
-            makeMove(data.board, data.player, move)
-            data.player = nextPlayer(data.player)
+            move = MCTS_find_move(data)
+            # move = best_evaluation_find_move(data)
+            make_move(data.board, data.player, move)
+            data.player = next_player(data.player)
             resolveEvent(data.board, 0, WIDTH)
 
             print(torch.softmax(data.model(
@@ -35,10 +36,10 @@ def game(data: MCTSData, screen: pygame.surface.Surface,
 
         draw(screen, frame, data.board, WIDTH, data.player)
 
-        if gameEnd(data.board):
-            return nextPlayer(data.player)
+        if game_end(data.board):
+            return game_result(data.board)
 
-        if not availableMoves(data.board):
+        if not available_moves(data.board):
             return 0
 
 
@@ -47,7 +48,7 @@ def main() -> None:
     player = -1
     board, screen, frame = initializeGame(WIDTH)
     draw(screen, frame, board, WIDTH)
-    model, device = loadConvModel()
+    model, device = load_conv_model()
 
     data = MCTSData(board, player, UCB1, model, device, sim_number=sims)
 

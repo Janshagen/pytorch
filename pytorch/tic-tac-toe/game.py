@@ -9,7 +9,7 @@ from interface import (chooseConfig, draw, gameOver, initializeGame,
                        resolveEvent)
 
 # Configurations
-SIMULATIONS = 100
+SIMULATIONS = 10
 WIDTH = 200
 UCB1 = 1.4
 
@@ -25,8 +25,8 @@ def game(gameState: np.ndarray, model: torch.nn.Module, device: torch.device, pl
 
         elif player == 1:
             # AI
-            # move = MCTSfindMove(gameState, player, sims, UCB1, model, device)
-            move = bestEvaluationFindMove(gameState, player, model, device)
+            move = MCTSfindMove(gameState, player, sims, UCB1, model, device)
+            # move = bestEvaluationFindMove(gameState, player, model, device)
             makeMove(gameState, player, move)
             player = nextPlayer(player)
             resolveEvent(gameState, 0, WIDTH)

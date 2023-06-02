@@ -4,7 +4,7 @@ from typing import Optional
 import numpy as np
 import numpy.typing as npt
 import pygame
-from gameplay import availableMoves
+from gameplay import available_moves
 
 WHITE = (230, 230, 230)
 GREY = (180, 180, 180)
@@ -67,7 +67,7 @@ def resolveEvent(board: board_type, player: int,
 
 
 def placePiece(board: np.ndarray, WIDTH: int) -> Optional[tuple[int, int]]:
-    moves = availableMoves(board)
+    moves = available_moves(board)
     mPos = mousePos(WIDTH)
 
     if mPos in moves:

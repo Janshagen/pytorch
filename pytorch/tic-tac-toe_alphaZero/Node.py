@@ -2,28 +2,43 @@ import random
 from typing import Optional
 
 import numpy as np
+import numpy.typing as npt
+from gameplay import make_move, available_moves, game_result
+
+board_type = npt.NDArray[np.int8]
 
 
 class Node:
-    def __init__(self, player: int, move: tuple[int, int] = (-1, -1),
+    def __init__(self, board: board_type, player: int,
+                 move: Optional[tuple[int, int]] = None,
                  parent: Optional['Node'] = None) -> None:
         self.value: float = 0
         self.visits: int = 0
         self.parent: Optional['Node'] = parent
         self.children: list['Node'] = []
-        self.move: tuple[int, int] = move
+        self.move: Optional[tuple[int, int]] = move
+        self.board: board_type = board  # board after move has been made
         self.player: int = player      # self.player makes self.move
+        self.terminal_node: bool = False
+        self.result: int
 
-    def makeChildren(self, moves: list[tuple[int, int]]) -> None:
+    def make_children(self) -> None:
         """Makes a child node for every possible move"""
-        player = self.nextPlayer()
+        player = self.next_player()
+        moves = available_moves(self.board)
         for move in moves:
-            child = Node(player, move, parent=self)
+            board = self.board.copy()
+            make_move(board, player, move)
+            child = Node(board, player, move, parent=self)
+            result = game_result(board)
+            if result != 2:
+                child.terminal_node = True
+                child.result = result
             self.children.append(child)
 
         random.shuffle(self.children)
 
-    def selectChild(self, C: float) -> 'Node':
+    def select_child(self, C: float) -> 'Node':
         """Uses UCB1 to pick child node"""
         # if node doesn't have children, return self
         if len(self.children) == 0:
@@ -53,7 +68,7 @@ class Node:
             instance.value += result if instance.player == 1 else -result
             instance = instance.parent
 
-    def chooseMove(self) -> tuple[int, int]:
+    def choose_move(self) -> Optional[tuple[int, int]]:
         """Chooses most promising move from the list of children"""
         # if node doesn't have children, make no move
         if len(self.children) == 0:
@@ -67,5 +82,5 @@ class Node:
         chosenChild = self.children[maxIndex]
         return chosenChild.move
 
-    def nextPlayer(self) -> int:
-        return -1 if self.player == 1 else 1
+    def next_player(self) -> int:
+        return -1 * self.player

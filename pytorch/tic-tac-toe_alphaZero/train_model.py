@@ -3,8 +3,8 @@ import random
 import numpy as np
 import torch
 import torch.nn as nn
-from AI import MCTSfindMove
-from gameplay import availableMoves, gameEnd, makeMove, nextPlayer
+from AI import MCTS_find_move
+from gameplay import available_moves, game_end, make_move, next_player
 from MCTSData import MCTSData
 from TicTacToeModel import ConvModel
 
@@ -50,9 +50,9 @@ def game(data: MCTSData) -> tuple[torch.Tensor, torch.Tensor]:
     input = torch.zeros((1, 3, 3, 3), device=data.device)
     input[0][2] = torch.ones((3, 3)) * data.player
     while True:
-        move = MCTSfindMove(data)
-        makeMove(data.board, data.player, move)
-        data.player = nextPlayer(data.player)
+        move = MCTS_find_move(data)
+        make_move(data.board, data.player, move)
+        data.player = next_player(data.player)
 
         # adding rotated boards
         for i in range(4):
@@ -61,17 +61,17 @@ def game(data: MCTSData) -> tuple[torch.Tensor, torch.Tensor]:
             input = torch.cat((input, permutation), dim=0)
 
         # win
-        if gameEnd(data.board):
+        if game_end(data.board):
             # adding endboard but with other player to make turn
             input = torch.cat((input, data.model.board2tensor(
                 data.board, -1*data.player, data.device)), dim=0)
             predictions = data.model(input, -1*data.player, data.device)
 
-            res = [0] if nextPlayer(data.player) == 1 else [2]
+            res = [0] if next_player(data.player) == 1 else [2]
             return predictions, torch.tensor(res, device=data.device)
 
         # draw
-        if not availableMoves(data.board):
+        if not available_moves(data.board):
             # adding endboard but with other player to make turn
             input = torch.cat((input, data.model.board2tensor(
                 data.board, -1*data.player, data.device)), dim=0)
