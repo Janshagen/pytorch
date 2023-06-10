@@ -6,6 +6,18 @@ import numpy.typing as npt
 
 board_type = npt.NDArray[np.int8]
 
+GAME_NOT_OVER = 2
+DRAW = 0
+
+
+MOVE2INDEX = {(0, 0): 0, (0, 1): 1, (0, 2): 2,
+              (1, 0): 3, (1, 1): 4, (1, 2): 5,
+              (2, 0): 6, (2, 1): 7, (2, 2): 8}
+
+
+def move2index(move) -> int:
+    return MOVE2INDEX[move]
+
 
 def available_moves(board: board_type) -> list[tuple[int, int]]:
     returnMoves = []
@@ -27,13 +39,12 @@ def random_move(moves: list[tuple[int, int]]) -> tuple[int, int]:
     return random.choice(moves)
 
 
-def game_result(board: board_type) -> int:
-    """Returns 2 if not over"""
+def game_status(board: board_type) -> int:
     COLUMN_COUNT = 3
     ROW_COUNT = 3
 
     if not (board == 0).any():
-        return 0
+        return DRAW
 
     # Check horizontal locations for win
     for r in range(ROW_COUNT):
@@ -41,7 +52,7 @@ def game_result(board: board_type) -> int:
         if first_spot == 0:
             continue
         if first_spot == board[r][1] == board[r][2]:
-            return winner(first_spot)
+            return first_spot
 
     # Check vertical locations for win
     for c in range(COLUMN_COUNT):
@@ -49,33 +60,27 @@ def game_result(board: board_type) -> int:
         if first_spot == 0:
             continue
         if first_spot == board[1][c] == board[2][c]:
-            return winner(first_spot)
+            return first_spot
 
     middle = board[1][1]
     if middle == 0:
-        return 2
+        return GAME_NOT_OVER
 
     # Check positively sloped diagonals
     if board[0][0] == middle == board[2][2]:
-        return winner(middle)
+        return middle
 
     # Check negatively sloped diagonals
     if board[0][2] == middle == board[2][0]:
-        return winner(middle)
+        return middle
 
-    return 2
+    return GAME_NOT_OVER
 
 
-def game_end(board: board_type) -> bool:
-    if game_result(board) == 2:
+def game_over(status) -> bool:
+    if status == GAME_NOT_OVER:
         return False
     return True
-
-
-def winner(player: int) -> int:
-    if player:
-        return player
-    return 0
 
 
 def next_player(player: int) -> int:

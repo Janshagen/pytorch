@@ -10,5 +10,14 @@
         "optim",
         "rollouts",
         "vinstprocent"
-    ]
+    ],
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.autopep8"
+    },
+    "python.formatting.provider": "autopep8",
+    "python.formatting.autopep8Args": [
+        "--max-line-length",
+        "99",
+        "--experimental"
+    ],
 }

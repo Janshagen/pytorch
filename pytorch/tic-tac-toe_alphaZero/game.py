@@ -1,7 +1,7 @@
 import pygame
 import torch
-from AI import MCTS_find_move, load_conv_model
-from gameplay import (available_moves, game_end, game_result, make_move,
+from AI import MCTS_find_move, load_model
+from gameplay import (available_moves, game_over, game_status, make_move,
                       next_player)
 from interface import (chooseConfig, draw, gameOver, initializeGame,
                        resolveEvent)
@@ -36,8 +36,9 @@ def game(data: MCTSData, screen: pygame.surface.Surface,
 
         draw(screen, frame, data.board, WIDTH, data.player)
 
-        if game_end(data.board):
-            return game_result(data.board)
+        status = game_status(data.board)
+        if game_over(status):
+            return game_status(data.board)
 
         if not available_moves(data.board):
             return 0
@@ -48,7 +49,7 @@ def main() -> None:
     player = -1
     board, screen, frame = initializeGame(WIDTH)
     draw(screen, frame, board, WIDTH)
-    model, device = load_conv_model()
+    model, device = load_model()
 
     data = MCTSData(board, player, UCB1, model, device, sim_number=sims)
 

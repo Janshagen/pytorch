@@ -2,14 +2,16 @@ import numpy as np
 import numpy.typing as npt
 import torch
 from Node import Node
-from TicTacToeModel import ConvModel, LinearModel
+from TicTacToeModel import AlphaZero
+from typing import Literal, TypeAlias
 
-board_type = npt.NDArray[np.int8]
+board_type: TypeAlias = npt.NDArray[np.int8]
+move_indices: TypeAlias = Literal[0, 1, 2]
 
 
 class MCTSData:
     def __init__(self, board: board_type, player: int, UCB1: float,
-                 model: LinearModel | ConvModel, device: torch.device,
+                 model: AlphaZero, device: torch.device,
                  sim_time: float = np.inf, sim_number: int = 1_000_000,
                  cutoff: int = 0) -> None:
 

@@ -3,9 +3,12 @@ from typing import Optional
 
 import numpy as np
 import numpy.typing as npt
-from gameplay import make_move, available_moves, game_result
+import torch
+from gameplay import (available_moves, game_over, game_status, make_move,
+                      move2index)
 
 board_type = npt.NDArray[np.int8]
+GAME_NOT_OVER = 2
 
 
 class Node:
@@ -20,20 +23,25 @@ class Node:
         self.board: board_type = board  # board after move has been made
         self.player: int = player      # self.player makes self.move
         self.terminal_node: bool = False
-        self.result: int
+        self.evaluation: float
+        self.prior: float
 
-    def make_children(self) -> None:
+    def make_children(self, policy: torch.Tensor) -> None:
         """Makes a child node for every possible move"""
         player = self.next_player()
         moves = available_moves(self.board)
         for move in moves:
             board = self.board.copy()
             make_move(board, player, move)
+
             child = Node(board, player, move, parent=self)
-            result = game_result(board)
-            if result != 2:
+            child.prior = policy[move2index(move)].item()
+
+            status = game_status(board)
+            if game_over(status):
                 child.terminal_node = True
-                child.result = result
+                child.evaluation = status
+
             self.children.append(child)
 
         random.shuffle(self.children)
@@ -54,18 +62,21 @@ class Node:
             v = child.value
             mi = child.visits
             mp = child.parent.visits
-            UCB1values[i] = v/mi + C * np.sqrt(np.log(mp)/mi)
+            P = child.prior
+            UCB1values[i] = v/mi + C * P * np.sqrt(mp)/(mi+1)
 
         # return child that maximizes UCB1
         maxIndex = np.argmax(UCB1values)
         return self.children[maxIndex]
 
-    def backpropagate(self, result: float) -> None:
+    def backpropagate(self) -> None:
         """Updates value and visits according to result"""
+        assert self.parent
         instance = self
         while instance is not None:
             instance.visits += 1
-            instance.value += result if instance.player == 1 else -result
+            instance.value += self.parent.evaluation if instance.player == 1 \
+                else -self.parent.evaluation
             instance = instance.parent
 
     def choose_move(self) -> Optional[tuple[int, int]]:
