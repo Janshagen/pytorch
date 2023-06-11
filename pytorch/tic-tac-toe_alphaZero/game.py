@@ -1,11 +1,12 @@
 import pygame
 import torch
-from AI import MCTS_find_move, load_model
-from gameplay import (available_moves, game_over, game_status, make_move,
-                      next_player)
+from AI import MCTS
+from gameplay import TicTacToeGameState
+from DeepLearningData import DeepLearningData
+from TicTacToeModel import AlphaZero
 from interface import (chooseConfig, draw, gameOver, initializeGame,
                        resolveEvent)
-from MCTSData import MCTSData
+
 
 # Configurations
 SIMULATIONS = 10
@@ -13,49 +14,54 @@ WIDTH = 200
 UCB1 = 1.4
 
 
-def game(data: MCTSData, screen: pygame.surface.Surface,
-         frame: pygame.Surface) -> int:
-    while True:
-        if data.player == -1:
-            # Human
-            move = resolveEvent(data.board, data.player, WIDTH)
-            make_move(data.board, data.player, move)
-            if move:
-                data.player = next_player(data.player)
-
-        elif data.player == 1:
-            # AI
-            move = MCTS_find_move(data)
-            # move = best_evaluation_find_move(data)
-            make_move(data.board, data.player, move)
-            data.player = next_player(data.player)
-            resolveEvent(data.board, 0, WIDTH)
-
-            print(torch.softmax(data.model(
-                data.board, data.player, data.device), dim=2))
-
-        draw(screen, frame, data.board, WIDTH, data.player)
-
-        status = game_status(data.board)
-        if game_over(status):
-            return game_status(data.board)
-
-        if not available_moves(data.board):
-            return 0
-
-
 def main() -> None:
     sims = chooseConfig(SIMULATIONS)
-    player = -1
+    starting_player = -1
     board, screen, frame = initializeGame(WIDTH)
-    draw(screen, frame, board, WIDTH)
-    model, device = load_model()
 
-    data = MCTSData(board, player, UCB1, model, device, sim_number=sims)
+    game_state = TicTacToeGameState(board, starting_player)
+    learning_data = create_learning_data()
+    mcts = MCTS(UCB1, sim_number=sims)
 
-    result = game(data, screen, frame)
+    draw(screen, frame, game_state, WIDTH)
+
+    result = game(mcts, game_state, learning_data,  screen, frame)
     if not gameOver(screen, result, WIDTH):
         main()
+
+
+def create_learning_data():
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model = AlphaZero(device)
+    model = DeepLearningData.load_model(device)
+
+    learning_data = DeepLearningData(model, device)
+    return learning_data
+
+
+def game(mcts: MCTS, game_state: TicTacToeGameState, learning_data: DeepLearningData,
+         screen: pygame.surface.Surface, frame: pygame.Surface) -> int:
+    while True:
+        # Human
+        if game_state.player == -1:
+            move = resolveEvent(game_state, WIDTH)
+            if move:
+                game_state.make_move(move)
+
+        # AI
+        elif game_state.player == 1:
+            move = mcts.find_move(game_state, learning_data)
+            game_state.make_move(move)
+            resolveEvent(game_state, WIDTH)
+
+            torch_board = learning_data.model.state2tensor(game_state)
+            print(f"{learning_data.model(torch_board)[0][0][0].item():.4f}")
+
+        draw(screen, frame, game_state, WIDTH)
+
+        status = game_state.game_status()
+        if TicTacToeGameState.game_over(status):
+            return status
 
 
 if __name__ == '__main__':

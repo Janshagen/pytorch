@@ -1,87 +1,101 @@
-from typing import Optional
+import time
 
 import numpy as np
-import numpy.typing as npt
-import torch
-from gameplay import (available_moves, make_move, next_player)
-from MCTSData import MCTSData
+from DeepLearningData import DeepLearningData
 from Node import Node
-from TicTacToeModel import AlphaZero
 
-board_type = npt.NDArray[np.int8]
+from gameplay import TicTacToeGameState
 
 
-def MCTS_find_move(data: MCTSData) -> Optional[tuple[int, int]]:
-    evaluation, policy = data.model(data.board, data.player)
-    data.root = Node(data.board, data.player)
+class MCTS:
+    def __init__(self, UCB1: float, sim_time: float = np.inf,
+                 sim_number: int = 1_000_000, cutoff: int = 0) -> None:
 
-    # data.root = Node(data.board, next_player(data.player))
-    # data.root.make_children(policy)
-    # data.root.player = data.root.next_player()
+        self.UCB1 = UCB1
+        self.sim_time = sim_time
+        self.sim_number = sim_number
+        self.cutoff = cutoff
 
-    for _ in range(data.sim_number):
-        current = data.root
+        self.root: Node
 
-        # Tree traverse
-        while len(current.children) > 0:
-            current = current.select_child(data.UCB1)
+    def find_move(self, game_state: TicTacToeGameState,
+                  learning_data: DeepLearningData) -> tuple[int, int]:
+        self.root = Node(game_state)
 
-            # returns a move if visits exceeds half of total simulations
-            if current.visits >= 0.5*data.sim_number:
+        start_time = time.process_time()
+        for _ in range(self.sim_number):
+            if self.maximum_time_exceeded(start_time):
+                return self.root.choose_move()
+
+            current = self.root
+            current = self.traverse_tree(current)
+
+            if current.visits >= 0.5*self.sim_number:
                 # printData(root)
+                assert current.move
                 return current.move
 
-        # Expand tree if it isn't a terminal node
-        if not current.terminal_node:
-            evaluation, policy = data.model(
-                current.board, current.next_player())
-            current.evaluation = evaluation
+            if not current.terminal_node:
+                current = self.expand_tree(learning_data, current)
 
-            current.make_children(policy[0])
-            current = current.select_child(data.UCB1)
+            current.backpropagate()
 
-        # Backpropagation
-        current.backpropagate()
+        # printData(root)
+        return self.root.choose_move()
 
-    # printData(root)
-    return data.root.choose_move()
+    def traverse_tree(self, current: Node) -> Node:
+        while len(current.children) > 0:
+            current = current.select_child(self.UCB1)
+            if current.visits >= 0.5*self.sim_number:
+                return current
+        return current
 
+    def expand_tree(self, learning_data: DeepLearningData, current: Node) -> Node:
+        torch_board = learning_data.model.state2tensor(current.game_state)
+        evaluation, policy = learning_data.model(torch_board)
+        current.evaluation = evaluation
 
-def best_evaluation_find_move(data: MCTSData) -> tuple[int, int]:
-    """Chooses move which maximizes players evaluation, and minimizes
-    opponents evaluation, of gamestate after that move is made."""
-    moves = available_moves(data.board)
-    evaluations = np.empty(len(moves))
-    for i, move in enumerate(moves):
-        board = data.board.copy()
-        make_move(board, data.player, move)
-        eval = data.model(board, data.device, next_player(data.player))[0][0]
-        eval = torch.softmax(eval, dim=0)
-        evaluations[i] = (eval[0] - eval[2]).item()
-    maxIndex = np.argmax(evaluations)
+        current.make_children(policy[0])
+        current = current.select_child(self.UCB1)
+        return current
 
-    return moves[maxIndex]
+    def maximum_time_exceeded(self, start_time: float) -> bool:
+        return time.process_time() - start_time > self.sim_time
 
-
-def load_model():
-    FILE = '/home/anton/skola/egen/pytorch/tic-tac-toe/alpha_zero.pth'
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = AlphaZero(device)
-    model.load_state_dict(torch.load(FILE))
-    model.to(device)
-    model.eval()
-
-    return model, device
+    def print_data(self) -> None:
+        visits, val, p = self.root.visits, self.root.value, self.root.game_state.player
+        print(
+            f'root; player: {p}, rollouts: {visits}, value: {round(val*1, 2)}',
+            f'vinstprocent: {round((visits+val)*50/visits, 2)}%')
+        print('children;')
+        print('visits:', end=' ')
+        childVisits = [child.visits for child in self.root.children]
+        childVisits.sort(reverse=True)
+        print(childVisits)
+        print('')
 
 
-def print_data(root: Node) -> None:
-    visits, val, p = root.visits, root.value, root.player
-    print(
-        f'root; player: {p}, rollouts: {visits}, value: {round(val*1, 2)}',
-        f'vinstprocent: {round((visits+val)*50/visits, 2)}%')
-    print('children;')
-    print('visits:', end=' ')
-    childVisits = [child.visits for child in root.children]
-    childVisits.sort(reverse=True)
-    print(childVisits)
-    print('')
+# def load_model():
+#     FILE = '/home/anton/skola/egen/pytorch/tic-tac-toe/alpha_zero.pth'
+#     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+#     model = AlphaZero(device)
+#     model.load_state_dict(torch.load(FILE))
+#     model.to(device)
+#     model.eval()
+
+#     return model, device
+
+# def best_evaluation_find_move(self, data: MCTSData) -> tuple[int, int]:
+#     """Chooses move which maximizes players evaluation, and minimizes
+#     opponents evaluation, of gamestate after that move is made."""
+#     moves = available_moves(data.board)
+#     evaluations = np.empty(len(moves))
+#     for i, move in enumerate(moves):
+#         board = data.board.copy()
+#         make_move(board, data.player, move)
+#         eval = data.model(board, data.device, next_player(data.player))[0][0]
+#         eval = torch.softmax(eval, dim=0)
+#         evaluations[i] = (eval[0] - eval[2]).item()
+#     maxIndex = np.argmax(evaluations)
+
+#     return moves[maxIndex]

@@ -3,149 +3,157 @@ import random
 import numpy as np
 import torch
 import torch.nn as nn
-from AI import MCTS_find_move
-from gameplay import (game_over, game_status, make_move,
-                      next_player, move2index)
-from MCTSData import MCTSData
+from AI import MCTS
+from DeepLearningData import DeepLearningData
+from gameplay import TicTacToeGameState
 from TicTacToeModel import AlphaZero, Loss
 
 # Constants
 LOAD_MODEL = False
-SAVE_MODEL = False
+SAVE_MODEL = True
 FILE = '/home/anton/skola/egen/pytorch/tic-tac-toe/alpha_zero.pth'
 
 LEARNING_RATE = 0.01
-N_EPOCHS = 100_000
-
-OUTPUT_SIZE = 3
-HIDDEN_SIZE1 = 72
-HIDDEN_SIZE2 = 72
+N_EPOCHS = 100
 
 SIMULATIONS = 30
 UCB1 = 1.4
 
 
-def train(data: MCTSData, optimizer: torch.optim.Optimizer, loss: Loss) -> None:
+def main() -> None:
+    mcts = MCTS(UCB1, sim_number=SIMULATIONS)
+    learning_data = create_learning_data()
+
+    train(mcts, learning_data)
+    validate(learning_data)
+
+    if SAVE_MODEL:
+        learning_data.save_model()
+
+
+def create_learning_data():
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model = AlphaZero(device)
+    if LOAD_MODEL:
+        model = DeepLearningData.load_model(device)
+    optimizer = torch.optim.SGD(model.parameters(), lr=LEARNING_RATE)
+    loss = Loss()
+
+    learning_data = DeepLearningData(model, device, loss, optimizer)
+    return learning_data
+
+
+def train(mcts: MCTS, learning_data: DeepLearningData) -> None:
+    assert learning_data.loss
+    assert learning_data.optimizer
     for epoch in range(N_EPOCHS):
-        game_states, result, visits = game(data)
-        evaluations, policies = data.model(game_states)
+        board_states, result, visits = game(mcts, learning_data)
 
-        player = random.choice([1, -1])
-        board = np.zeros((3, 3), dtype=np.int8)
-        data.board = board
-        data.player = player
-
-        num_moves = game_states.shape[0]
+        num_moves = board_states.shape[0]
         result = result.expand((num_moves, 1))
 
-        error = loss(evaluations, result, policies, visits)
+        evaluations, policies = learning_data.model(board_states)
 
+        error = learning_data.loss(evaluations, result, policies, visits)
         error.backward()
 
-        optimizer.step()
-        optimizer.zero_grad()
+        learning_data.optimizer.step()
+        learning_data.optimizer.zero_grad()
 
-        if (epoch + 1) % 100 == 0:
+        if (epoch + 1) % (N_EPOCHS/10) == 0:
             print(
                 f'Epoch [{epoch+1}/{N_EPOCHS}], Loss: {error.item():.8f}',
-                f'evaluation: {evaluations[0]:.4f}, result: {result.item()}')
+                f'evaluation: {evaluations[0].item():.4f}')
 
 
-def game(data: MCTSData) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    board_states = torch.zeros((4, 3, 3, 3), device=data.device)
-    board_states[:][2] = torch.ones((3, 3)) * data.player
+def game(mcts: MCTS, learning_data: DeepLearningData) -> \
+        tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
 
-    all_visits = torch.tensor([], device=data.device)
+    game_state = create_game_state()
+    board_states = torch.zeros((4, 3, 3, 3), device=learning_data.device)
+    board_states[:][2] = torch.ones((3, 3)) * game_state.player
+
+    all_visits = torch.tensor([], device=learning_data.device)
     while True:
-        perform_game_action(data)
-        all_visits = add_number_of_visits(data, all_visits)
-        board_states = add_new_rotated_board_states(data, board_states)
+        game_state = perform_game_action(mcts, game_state, learning_data)
+        all_visits = add_number_of_visits(mcts, learning_data, all_visits)
+        board_states = add_new_rotated_board_states(
+            game_state,
+            learning_data,
+            board_states
+        )
 
-        status = game_status(data.board)
-        if game_over(status):
-            visits = torch.tensor([0.111]*9, dtype=torch.float32, device=data.device)
+        status = game_state.game_status()
+        if TicTacToeGameState.game_over(status):
+            visits = torch.tensor([0.111]*9, dtype=torch.float32,
+                                  device=learning_data.device)
             for _ in range(4):
                 all_visits = torch.cat((all_visits, visits.expand((1, -1))), dim=0)
 
             return board_states, torch.tensor(
                 [status],
-                dtype=torch.float32, device=data.device), all_visits
+                dtype=torch.float32, device=learning_data.device), all_visits
 
 
-def perform_game_action(data: MCTSData) -> None:
-    move = MCTS_find_move(data)
-    make_move(data.board, data.player, move)
-    data.player = next_player(data.player)
+def create_game_state():
+    player = random.choice([1, -1])
+    board = np.zeros((3, 3), dtype=np.int8)
+    return TicTacToeGameState(board, player)
 
 
-def add_number_of_visits(data: MCTSData, all_visits: torch.Tensor) -> torch.Tensor:
+def perform_game_action(mcts: MCTS, game_state: TicTacToeGameState,
+                        learning_data: DeepLearningData) -> TicTacToeGameState:
+    move = mcts.find_move(game_state, learning_data)
+    game_state.make_move(move)
+    return game_state
+
+
+def add_number_of_visits(mcts: MCTS, learning_data: DeepLearningData,
+                         all_visits: torch.Tensor) -> torch.Tensor:
     visits = [0]*9
-    for child in data.root.children:
-        visits[move2index(child.move)] = child.visits
+    for child in mcts.root.children:
+        visits[TicTacToeGameState.move2index(child.move)] = child.visits
 
-    visits = torch.tensor(visits, dtype=torch.float32, device=data.device)
-    visits = nn.functional.normalize(visits, dim=0)
+    visits = torch.tensor(visits, dtype=torch.float32, device=learning_data.device)
+    visits = nn.functional.normalize(visits, dim=0, p=1)
     for _ in range(4):
         all_visits = torch.cat((all_visits, visits.expand((1, -1))), dim=0)
     return all_visits
 
 
-def add_new_rotated_board_states(data: MCTSData, board_states: torch.Tensor) \
-        -> torch.Tensor:
+def add_new_rotated_board_states(game_state: TicTacToeGameState,
+                                 learning_data: DeepLearningData,
+                                 board_states: torch.Tensor) -> torch.Tensor:
+    torch_board = learning_data.model.state2tensor(game_state)
     for i in range(4):
-        permutation = data.model.board2tensor(
-            data.board, data.player).rot90(k=i, dims=(2, 3))
+        permutation = torch_board.rot90(k=i, dims=(2, 3))
         board_states = torch.cat((board_states, permutation), dim=0)
     return board_states
 
 
-def validate(data: MCTSData) -> None:
+def validate(learning_data: DeepLearningData) -> None:
     win1 = np.array([[1, 1, 1],
                      [-1, 0, -1],
                      [-1, 0, 0]])
+    game_state1 = TicTacToeGameState(win1, -1)
+    torch_board1 = learning_data.model.state2tensor(game_state1)
 
     draw = np.array([[1, -1, 1],
                      [-1, 1, -1],
                      [-1, 1, -1]])
+    game_state2 = TicTacToeGameState(draw, 1)
+    torch_board2 = learning_data.model.state2tensor(game_state2)
 
     win2 = np.array([[-1, 1, 1],
                      [-1, 1, -1],
                      [-1, -1, 1]])
+    game_state3 = TicTacToeGameState(win2, 1)
+    torch_board3 = learning_data.model.state2tensor(game_state3)
 
     with torch.no_grad():
-        print('win 1:', torch.softmax(
-            data.model(win1, -1, data.device), 2))
-        print('draw:', torch.softmax(
-            data.model(draw, 1, data.device), 2))
-        print('win 2:', torch.softmax(
-            data.model(win2, 1, data.device), 2))
-
-
-def main() -> None:
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = load_model(device)
-
-    player = random.choice([1, -1])
-    board = np.zeros((3, 3), dtype=np.int8)
-    data = MCTSData(board, player, UCB1, model, device, sim_number=SIMULATIONS)
-
-    optimizer = torch.optim.SGD(model.parameters(), lr=LEARNING_RATE)
-    loss = Loss()
-
-    train(data, optimizer, loss)
-    validate(data)
-
-    if SAVE_MODEL:
-        torch.save(model.state_dict(), FILE)
-
-
-def load_model(device: torch.device):
-    model = AlphaZero(device)
-    if LOAD_MODEL:
-        model.load_state_dict(torch.load(FILE))
-        model.to(device)
-        model.eval()
-    return model
+        print('win 1:', learning_data.model(torch_board1))
+        print('draw:', learning_data.model(torch_board2))
+        print('win 2:', learning_data.model(torch_board3))
 
 
 if __name__ == '__main__':

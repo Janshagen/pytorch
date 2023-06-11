@@ -4,7 +4,7 @@ from typing import Optional
 import numpy as np
 import numpy.typing as npt
 import pygame
-from gameplay import available_moves
+from gameplay import TicTacToeGameState
 
 WHITE = (230, 230, 230)
 GREY = (180, 180, 180)
@@ -32,19 +32,19 @@ def initializeGame(WIDTH: int) -> \
 
 
 def draw(screen: pygame.surface.Surface, frame: pygame.Surface,
-         board: board_type, WIDTH: int, player: int = 0) -> None:
+         game_state: TicTacToeGameState, WIDTH: int) -> None:
 
     screen.fill(WHITE)
-    drawPieces(screen, board, player, WIDTH)
+    drawPieces(screen, game_state, WIDTH)
     screen.blit(frame, (0, 0))
 
     pygame.display.flip()
 
 
-def drawPieces(screen: pygame.surface.Surface, board: board_type, player,
+def drawPieces(screen: pygame.surface.Surface, game_state: TicTacToeGameState,
                WIDTH: int) -> None:
     # placed pieces
-    for i, row in enumerate(board):
+    for i, row in enumerate(game_state.board):
         for j, spot in enumerate(row):
             if spot == 1:
                 pygame.draw.circle(screen, PURPLE,
@@ -54,20 +54,20 @@ def drawPieces(screen: pygame.surface.Surface, board: board_type, player,
                                    int2coord(j, i, WIDTH), WIDTH // 3)
 
 
-def resolveEvent(board: board_type, player: int,
+def resolveEvent(game_state: TicTacToeGameState,
                  WIDTH: int) -> Optional[tuple[int, int]]:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
 
-        if event.type == pygame.MOUSEBUTTONDOWN and player:
-            return placePiece(board, WIDTH)
+        if event.type == pygame.MOUSEBUTTONDOWN and game_state.player:
+            return placePiece(game_state, WIDTH)
     return None
 
 
-def placePiece(board: np.ndarray, WIDTH: int) -> Optional[tuple[int, int]]:
-    moves = available_moves(board)
+def placePiece(game_state: TicTacToeGameState, WIDTH: int) -> Optional[tuple[int, int]]:
+    moves = game_state.available_moves()
     mPos = mousePos(WIDTH)
 
     if mPos in moves:

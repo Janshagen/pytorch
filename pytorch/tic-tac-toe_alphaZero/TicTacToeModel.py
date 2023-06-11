@@ -1,10 +1,6 @@
-import numpy as np
-import numpy.typing as npt
 import torch
 import torch.nn as nn
-from typing import Optional
-
-board_type = npt.NDArray[np.int8]
+from gameplay import TicTacToeGameState
 
 
 class AlphaZero(nn.Module):
@@ -65,38 +61,31 @@ class AlphaZero(nn.Module):
                       kernel_size=self.policy_kernels[1],
                       device=device),
             nn.ReLU(),
-            nn.BatchNorm2d(self.policy_channels[2], device=device)
         )
 
-    def forward(self, board: board_type | torch.Tensor,
-                player: Optional[int] = None) -> \
-            tuple[torch.Tensor, torch.Tensor]:
-
-        if not isinstance(board, torch.Tensor):
-            board = self.board2tensor(board, player)
-
-        if len(board.shape) < 3:
+    def forward(self, board: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        if len(board.shape) <= 3:
             board = board.expand((1, -1))
 
         num_moves = board.shape[0]
+
         body = self.body(board)
-        policies = self.policy_head(body)
+        policies = self.policy_head(body).reshape((num_moves, -1))
+        policies = nn.functional.normalize(policies, dim=1, p=1)
+
         evaluation = self.value_head(
-            body.reshape((num_moves, self.body_channels[2]*3*3)))
-        return evaluation, policies.reshape((num_moves, -1))
+            body.reshape((num_moves, self.body_channels[2]*3*3))
+        )
+        return evaluation, policies
 
-    def board2tensor(self, board: board_type,
-                     player: Optional[int] = None) -> torch.Tensor:
-
-        np_board = torch.from_numpy(board).to(self.device)
+    def state2tensor(self, game_state: TicTacToeGameState) -> torch.Tensor:
+        np_board = torch.from_numpy(game_state.board).to(self.device)
         ones = torch.ones((3, 3)).to(self.device)
-        a = (np_board == ones).float()
-        b = (np_board == -ones).float()
 
         input = torch.empty((1, 3, 3, 3), device=self.device)
-        input[0][0] = a
-        input[0][1] = b
-        input[0][2] = player*ones
+        input[0][0] = (np_board == ones).float()
+        input[0][1] = (np_board == -ones).float()
+        input[0][2] = game_state.player*ones
         return input
 
 

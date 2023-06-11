@@ -2,44 +2,42 @@ import random
 from typing import Optional
 
 import numpy as np
-import numpy.typing as npt
 import torch
-from gameplay import (available_moves, game_over, game_status, make_move,
-                      move2index)
-
-board_type = npt.NDArray[np.int8]
-GAME_NOT_OVER = 2
+from gameplay import TicTacToeGameState
 
 
 class Node:
-    def __init__(self, board: board_type, player: int,
+    def __init__(self, game_state: TicTacToeGameState,
                  move: Optional[tuple[int, int]] = None,
                  parent: Optional['Node'] = None) -> None:
         self.value: float = 0
+        self.average_value: float = 0
         self.visits: int = 0
         self.parent: Optional['Node'] = parent
         self.children: list['Node'] = []
+
+        # self.player makes self.move
+        # board after move has been made
         self.move: Optional[tuple[int, int]] = move
-        self.board: board_type = board  # board after move has been made
-        self.player: int = player      # self.player makes self.move
-        self.terminal_node: bool = False
+        self.game_state = game_state
+
         self.evaluation: float
         self.prior: float
+        self.terminal_node: bool = False
 
     def make_children(self, policy: torch.Tensor) -> None:
-        """Makes a child node for every possible move"""
-        player = self.next_player()
-        moves = available_moves(self.board)
+        moves = self.game_state.available_moves()
         for move in moves:
-            board = self.board.copy()
-            make_move(board, player, move)
+            state = self.game_state.copy()
+            state.make_move(move)
 
-            child = Node(board, player, move, parent=self)
-            child.prior = policy[move2index(move)].item()
+            child = Node(state, move, parent=self)
+            move_index = TicTacToeGameState.move2index(move)
+            child.prior = policy[move_index].item()
 
-            status = game_status(board)
-            if game_over(status):
-                child.terminal_node = True
+            status = state.game_status()
+            if TicTacToeGameState.game_over(status):
+                self.terminal_node = True
                 child.evaluation = status
 
             self.children.append(child)
@@ -47,51 +45,36 @@ class Node:
         random.shuffle(self.children)
 
     def select_child(self, C: float) -> 'Node':
-        """Uses UCB1 to pick child node"""
-        # if node doesn't have children, return self
         if len(self.children) == 0:
             return self
 
-        UCB1values = np.zeros(len(self.children))
+        child_evaluations = np.zeros(len(self.children))
         for i, child in enumerate(self.children):
-            # returns child if it hasn't been visited before
-            if child.visits == 0:
-                return child
             assert child.parent
-            # calculates UCB1
-            v = child.value
-            mi = child.visits
-            mp = child.parent.visits
-            P = child.prior
-            UCB1values[i] = v/mi + C * P * np.sqrt(mp)/(mi+1)
 
-        # return child that maximizes UCB1
-        maxIndex = np.argmax(UCB1values)
+            relative_visits = np.sqrt(child.parent.visits)/(child.visits+1)
+            exploration = child.prior * relative_visits
+
+            child_evaluations[i] = self.average_value + C * exploration
+
+        maxIndex = np.argmax(child_evaluations)
         return self.children[maxIndex]
 
     def backpropagate(self) -> None:
-        """Updates value and visits according to result"""
         assert self.parent
         instance = self
         while instance is not None:
             instance.visits += 1
-            instance.value += self.parent.evaluation if instance.player == 1 \
+            instance.value += self.parent.evaluation if instance.game_state.player == 1 \
                 else -self.parent.evaluation
+            instance.average_value = instance.value/instance.visits
             instance = instance.parent
 
-    def choose_move(self) -> Optional[tuple[int, int]]:
-        """Chooses most promising move from the list of children"""
-        # if node doesn't have children, make no move
-        if len(self.children) == 0:
-            return self.move
-
-        # finds child with most visits and returns it
+    def choose_move(self) -> tuple[int, int]:
         visits = [child.visits for child in self.children]
         maxVisits = max(visits)
         maxIndex = visits.index(maxVisits)
 
         chosenChild = self.children[maxIndex]
+        assert chosenChild.move
         return chosenChild.move
-
-    def next_player(self) -> int:
-        return -1 * self.player
