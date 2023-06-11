@@ -3,9 +3,9 @@ import random
 import numpy as np
 import torch
 import torch.nn as nn
-from AI import MCTS
+from MCTS import MCTS
 from DeepLearningData import DeepLearningData
-from gameplay import TicTacToeGameState
+from GameRules import TicTacToeGameState
 from TicTacToeModel import AlphaZero, Loss
 
 # Constants
@@ -14,7 +14,7 @@ SAVE_MODEL = True
 FILE = '/home/anton/skola/egen/pytorch/tic-tac-toe/alpha_zero.pth'
 
 LEARNING_RATE = 0.01
-N_EPOCHS = 100
+N_EPOCHS = 100_000
 
 SIMULATIONS = 30
 UCB1 = 1.4
@@ -60,10 +60,14 @@ def train(mcts: MCTS, learning_data: DeepLearningData) -> None:
         learning_data.optimizer.step()
         learning_data.optimizer.zero_grad()
 
-        if (epoch + 1) % (N_EPOCHS/10) == 0:
-            print(
-                f'Epoch [{epoch+1}/{N_EPOCHS}], Loss: {error.item():.8f}',
-                f'evaluation: {evaluations[0].item():.4f}')
+        # print_info(epoch, evaluations, error)
+
+
+def print_info(epoch, evaluations, error):
+    if (epoch + 1) % (N_EPOCHS/10) == 0:
+        print(
+            f'Epoch [{epoch+1}/{N_EPOCHS}], Loss: {error.item():.8f}',
+            f'evaluation: {evaluations[0].item():.4f}')
 
 
 def game(mcts: MCTS, learning_data: DeepLearningData) -> \

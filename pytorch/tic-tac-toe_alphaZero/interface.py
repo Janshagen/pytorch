@@ -4,7 +4,7 @@ from typing import Optional
 import numpy as np
 import numpy.typing as npt
 import pygame
-from gameplay import TicTacToeGameState
+from GameRules import TicTacToeGameState
 
 WHITE = (230, 230, 230)
 GREY = (180, 180, 180)

@@ -4,7 +4,7 @@ import numpy as np
 from DeepLearningData import DeepLearningData
 from Node import Node
 
-from gameplay import TicTacToeGameState
+from GameRules import TicTacToeGameState
 
 
 class MCTS:
@@ -31,7 +31,7 @@ class MCTS:
             current = self.traverse_tree(current)
 
             if current.visits >= 0.5*self.sim_number:
-                # printData(root)
+                # print_data(root)
                 assert current.move
                 return current.move
 
@@ -40,7 +40,7 @@ class MCTS:
 
             current.backpropagate()
 
-        # printData(root)
+        # print_data(root)
         return self.root.choose_move()
 
     def traverse_tree(self, current: Node) -> Node:
@@ -73,29 +73,3 @@ class MCTS:
         childVisits.sort(reverse=True)
         print(childVisits)
         print('')
-
-
-# def load_model():
-#     FILE = '/home/anton/skola/egen/pytorch/tic-tac-toe/alpha_zero.pth'
-#     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-#     model = AlphaZero(device)
-#     model.load_state_dict(torch.load(FILE))
-#     model.to(device)
-#     model.eval()
-
-#     return model, device
-
-# def best_evaluation_find_move(self, data: MCTSData) -> tuple[int, int]:
-#     """Chooses move which maximizes players evaluation, and minimizes
-#     opponents evaluation, of gamestate after that move is made."""
-#     moves = available_moves(data.board)
-#     evaluations = np.empty(len(moves))
-#     for i, move in enumerate(moves):
-#         board = data.board.copy()
-#         make_move(board, data.player, move)
-#         eval = data.model(board, data.device, next_player(data.player))[0][0]
-#         eval = torch.softmax(eval, dim=0)
-#         evaluations[i] = (eval[0] - eval[2]).item()
-#     maxIndex = np.argmax(evaluations)
-
-#     return moves[maxIndex]

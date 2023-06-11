@@ -3,7 +3,7 @@ from typing import Optional
 
 import numpy as np
 import torch
-from gameplay import TicTacToeGameState
+from GameRules import TicTacToeGameState
 
 
 class Node:

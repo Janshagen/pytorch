@@ -1,7 +1,7 @@
 import pygame
 import torch
-from AI import MCTS
-from gameplay import TicTacToeGameState
+from MCTS import MCTS
+from GameRules import TicTacToeGameState
 from DeepLearningData import DeepLearningData
 from TicTacToeModel import AlphaZero
 from interface import (chooseConfig, draw, gameOver, initializeGame,

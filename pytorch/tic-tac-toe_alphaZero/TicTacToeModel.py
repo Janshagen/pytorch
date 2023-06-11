@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from gameplay import TicTacToeGameState
+from GameRules import TicTacToeGameState
 
 
 class AlphaZero(nn.Module):
