@@ -60,14 +60,17 @@ def train(mcts: MCTS, learning_data: DeepLearningData) -> None:
         learning_data.optimizer.step()
         learning_data.optimizer.zero_grad()
 
-        # print_info(epoch, evaluations, error)
+        if (epoch + 1) % (N_EPOCHS/10) == 0:
+            print_info(epoch, evaluations, error)
+
+            if SAVE_MODEL:
+                learning_data.save_model()
 
 
 def print_info(epoch, evaluations, error):
-    if (epoch + 1) % (N_EPOCHS/10) == 0:
-        print(
-            f'Epoch [{epoch+1}/{N_EPOCHS}], Loss: {error.item():.8f}',
-            f'evaluation: {evaluations[0].item():.4f}')
+    print(
+        f'Epoch [{epoch+1}/{N_EPOCHS}], Loss: {error.item():.8f}',
+        f'evaluation: {evaluations[0].item():.4f}')
 
 
 def game(mcts: MCTS, learning_data: DeepLearningData) -> \
