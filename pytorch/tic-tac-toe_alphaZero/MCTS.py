@@ -9,7 +9,8 @@ from GameRules import TicTacToeGameState
 
 class MCTS:
     def __init__(self, exploration_constant: float, sim_time: float = np.inf,
-                 sim_number: int = 1_000_000, cutoff: int = 0) -> None:
+                 sim_number: int = 1_000_000, cutoff: int = 0,
+                 verbose: bool = False) -> None:
 
         self.exploration_constant = exploration_constant
         self.sim_time = sim_time
@@ -18,6 +19,8 @@ class MCTS:
 
         self.root: Node
 
+        self.verbose = verbose
+
     def find_move(self, game_state: TicTacToeGameState,
                   learning_data: DeepLearningData) -> tuple[int, int]:
         self.root = Node(game_state)
@@ -25,13 +28,16 @@ class MCTS:
         start_time = time.process_time()
         for _ in range(self.sim_number):
             if self.maximum_time_exceeded(start_time):
+                if self.verbose:
+                    self.print_data()
                 return self.root.choose_move()
 
             current = self.root
             current = self.traverse_tree(current)
 
             if current.visits >= 0.5*self.sim_number:
-                self.print_data()
+                if self.verbose:
+                    self.print_data()
                 assert current.move
                 return current.move
 
@@ -40,7 +46,8 @@ class MCTS:
 
             current.backpropagate()
 
-        self.print_data()
+        if self.verbose:
+            self.print_data()
         return self.root.choose_move()
 
     def traverse_tree(self, current: Node) -> Node:

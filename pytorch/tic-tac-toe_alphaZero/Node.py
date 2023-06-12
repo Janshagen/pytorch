@@ -27,7 +27,6 @@ class Node:
 
     def make_children(self, policy: torch.Tensor) -> None:
         moves = self.game_state.available_moves()
-        print(policy)
         for move in moves:
             state = self.game_state.copy()
             state.make_move(move)

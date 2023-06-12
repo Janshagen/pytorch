@@ -13,7 +13,7 @@ LOAD_MODEL = False
 SAVE_MODEL = True
 
 LEARNING_RATE = 0.01
-N_EPOCHS = 100_000
+N_EPOCHS = 100
 
 SIMULATIONS = 30
 UCB1 = 1.4
@@ -38,8 +38,6 @@ def create_learning_data():
         model = DeepLearningData.load_model(device)
     optimizer = torch.optim.SGD(model.parameters(), lr=LEARNING_RATE)
     loss = Loss()
-    print(model)
-    print(model.parameters())
 
     learning_data = DeepLearningData(model, device, loss, optimizer)
     return learning_data
@@ -125,7 +123,6 @@ def add_number_of_visits(mcts: MCTS, learning_data: DeepLearningData,
 
     visits = torch.tensor(visits, dtype=torch.float32, device=learning_data.device)
     visits = nn.functional.normalize(visits, dim=0, p=1)
-    print(visits)
     for _ in range(4):
         all_visits = torch.cat((all_visits, visits.expand((1, -1))), dim=0)
     return all_visits

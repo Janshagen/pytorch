@@ -54,7 +54,8 @@ def game(mcts: MCTS, game_state: TicTacToeGameState, learning_data: DeepLearning
             resolveEvent(game_state, WIDTH)
 
             torch_board = learning_data.model.state2tensor(game_state)
-            print(f"{learning_data.model(torch_board)[0][0][0].item():.4f}")
+            print(f"evaluation: {learning_data.model(torch_board)[0][0][0].item():.4f}")
+            print(f"policy: {learning_data.model(torch_board)[1]}")
 
         draw(screen, frame, game_state, WIDTH)
 

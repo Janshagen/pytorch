@@ -46,9 +46,6 @@ class TicTacToeGameState:
         COLUMN_COUNT = 3
         ROW_COUNT = 3
 
-        if not (self.board == 0).any():
-            return TicTacToeGameState.DRAW
-
         # Check horizontal locations for win
         for r in range(ROW_COUNT):
             player = self.board[r][0]
@@ -76,6 +73,9 @@ class TicTacToeGameState:
         # Check negatively sloped diagonals
         if self.board[0][2] == middle == self.board[2][0]:
             return middle
+
+        if not (self.board == 0).any():
+            return TicTacToeGameState.DRAW
 
         return TicTacToeGameState.GAME_NOT_OVER
 
