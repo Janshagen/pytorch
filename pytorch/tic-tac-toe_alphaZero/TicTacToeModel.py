@@ -64,7 +64,7 @@ class AlphaZero(nn.Module):
         )
 
     def forward(self, board: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        if len(board.shape) <= 3:
+        if len(board.shape) == 3:
             board = board.expand((1, -1))
 
         num_moves = board.shape[0]
@@ -99,4 +99,4 @@ class Loss(nn.Module):
     def forward(self, evaluation: float, result: int,
                 policy: torch.Tensor, visits: torch.Tensor) -> torch.Tensor:
 
-        return self.MSE(evaluation, result) - self.cross_entropy(policy, visits)
+        return self.MSE(evaluation, result) + self.cross_entropy(policy, visits)

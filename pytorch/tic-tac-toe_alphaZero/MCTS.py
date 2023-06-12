@@ -8,10 +8,10 @@ from GameRules import TicTacToeGameState
 
 
 class MCTS:
-    def __init__(self, UCB1: float, sim_time: float = np.inf,
+    def __init__(self, exploration_constant: float, sim_time: float = np.inf,
                  sim_number: int = 1_000_000, cutoff: int = 0) -> None:
 
-        self.UCB1 = UCB1
+        self.exploration_constant = exploration_constant
         self.sim_time = sim_time
         self.sim_number = sim_number
         self.cutoff = cutoff
@@ -31,7 +31,7 @@ class MCTS:
             current = self.traverse_tree(current)
 
             if current.visits >= 0.5*self.sim_number:
-                # print_data(root)
+                self.print_data()
                 assert current.move
                 return current.move
 
@@ -40,12 +40,12 @@ class MCTS:
 
             current.backpropagate()
 
-        # print_data(root)
+        self.print_data()
         return self.root.choose_move()
 
     def traverse_tree(self, current: Node) -> Node:
         while len(current.children) > 0:
-            current = current.select_child(self.UCB1)
+            current = current.select_child(self.exploration_constant)
             if current.visits >= 0.5*self.sim_number:
                 return current
         return current
@@ -53,10 +53,10 @@ class MCTS:
     def expand_tree(self, learning_data: DeepLearningData, current: Node) -> Node:
         torch_board = learning_data.model.state2tensor(current.game_state)
         evaluation, policy = learning_data.model(torch_board)
-        current.evaluation = evaluation
+        current.evaluation = evaluation.item()
 
         current.make_children(policy[0])
-        current = current.select_child(self.UCB1)
+        current = current.select_child(self.exploration_constant)
         return current
 
     def maximum_time_exceeded(self, start_time: float) -> bool:
@@ -69,7 +69,9 @@ class MCTS:
             f'vinstprocent: {round((visits+val)*50/visits, 2)}%')
         print('children;')
         print('visits:', end=' ')
-        childVisits = [child.visits for child in self.root.children]
-        childVisits.sort(reverse=True)
-        print(childVisits)
+        child_visits = [child.visits for child in self.root.children]
+        child_prior = [child.prior for child in self.root.children]
+        # child_visits.sort(reverse=True)
+        print(child_visits)
+        print(child_prior)
         print('')

@@ -15,8 +15,7 @@ board_type = npt.NDArray[np.int8]
 
 
 def initializeGame(WIDTH: int) -> \
-        tuple[board_type, pygame.surface.Surface, pygame.Surface]:
-    board = np.zeros((3, 3), dtype=np.int8)
+        tuple[pygame.surface.Surface, pygame.Surface]:
 
     pygame.init()
     screen = pygame.display.set_mode((3 * WIDTH, 3 * WIDTH))
@@ -28,7 +27,7 @@ def initializeGame(WIDTH: int) -> \
                 frame, WHITE, (i*WIDTH+3, j*WIDTH+3, WIDTH-6, WIDTH-6))
     frame.set_colorkey(WHITE)
 
-    return board, screen, frame
+    return screen, frame
 
 
 def draw(screen: pygame.surface.Surface, frame: pygame.Surface,

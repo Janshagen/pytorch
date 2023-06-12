@@ -9,17 +9,16 @@ from interface import (chooseConfig, draw, gameOver, initializeGame,
 
 
 # Configurations
-SIMULATIONS = 10
+SIMULATIONS = 100
 WIDTH = 200
 UCB1 = 1.4
 
 
 def main() -> None:
     sims = chooseConfig(SIMULATIONS)
-    starting_player = -1
-    board, screen, frame = initializeGame(WIDTH)
+    screen, frame = initializeGame(WIDTH)
 
-    game_state = TicTacToeGameState(board, starting_player)
+    game_state = TicTacToeGameState.new_game()
     learning_data = create_learning_data()
     mcts = MCTS(UCB1, sim_number=sims)
 

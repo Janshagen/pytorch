@@ -1,6 +1,6 @@
 import numpy as np
 import numpy.typing as npt
-from typing import TypeAlias
+from typing import TypeAlias, Optional
 
 
 class TicTacToeGameState:
@@ -20,6 +20,12 @@ class TicTacToeGameState:
 
     def copy(self) -> 'TicTacToeGameState':
         return TicTacToeGameState(self.board.copy(), self.player)
+
+    @staticmethod
+    def new_game(player: Optional[int] = None) -> 'TicTacToeGameState':
+        board = np.zeros((3, 3), dtype=np.int8)
+        player = player if player else -1
+        return TicTacToeGameState(board, player)
 
     def available_moves(self) -> list[tuple[int, int]]:
         returnMoves = []

@@ -27,6 +27,7 @@ class Node:
 
     def make_children(self, policy: torch.Tensor) -> None:
         moves = self.game_state.available_moves()
+        print(policy)
         for move in moves:
             state = self.game_state.copy()
             state.make_move(move)
@@ -52,13 +53,13 @@ class Node:
         for i, child in enumerate(self.children):
             assert child.parent
 
-            relative_visits = np.sqrt(child.parent.visits)/(child.visits+1)
+            relative_visits = np.sqrt(self.visits)/(child.visits+1)
             exploration = child.prior * relative_visits
 
             child_evaluations[i] = self.average_value + C * exploration
 
-        maxIndex = np.argmax(child_evaluations)
-        return self.children[maxIndex]
+        max_index = np.argmax(child_evaluations)
+        return self.children[max_index]
 
     def backpropagate(self) -> None:
         assert self.parent
@@ -72,9 +73,9 @@ class Node:
 
     def choose_move(self) -> tuple[int, int]:
         visits = [child.visits for child in self.children]
-        maxVisits = max(visits)
-        maxIndex = visits.index(maxVisits)
+        max_visits = max(visits)
+        max_index = visits.index(max_visits)
 
-        chosenChild = self.children[maxIndex]
-        assert chosenChild.move
-        return chosenChild.move
+        chosen_child = self.children[max_index]
+        assert chosen_child.move
+        return chosen_child.move
