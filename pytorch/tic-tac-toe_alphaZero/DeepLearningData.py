@@ -1,6 +1,6 @@
 import os
 import re
-import time
+from datetime import datetime
 from typing import Optional
 
 import torch
@@ -33,8 +33,9 @@ class DeepLearningData:
 
     @staticmethod
     def get_save_file() -> str:
+        current_time = datetime.today().strftime("%Y-%m-%d %H:%M")
         game_dir = '/home/anton/skola/egen/pytorch/tic-tac-toe_alphaZero'
-        return game_dir + f'/models/AlphaZero{int(time.time())}.pth'
+        return game_dir + f'/models/AlphaZero{current_time}.pth'
 
     @staticmethod
     def get_load_file(file: Optional[str] = None) -> str:
@@ -43,14 +44,16 @@ class DeepLearningData:
         model_name = re.compile(".*?AlphaZero(.*?).pth")
         files = os.listdir(model_path)
 
-        times = []
-        for file in files:
+        oldest_file_datetime = datetime(2000, 1, 1, 1, 1)
+        oldest_index = 0
+        for i, file in enumerate(files):
             matches = model_name.match(file)
             if not matches:
-                times.append(0)
                 continue
-            times.append(int(matches.group(1)))
-        max_time = max(times)
-        max_index = times.index(max_time)
 
-        return model_path + files[max_index]
+            file_datetime = datetime.strptime(matches.group(1), '%Y-%m-%d %H:%M')
+            if file_datetime > oldest_file_datetime:
+                oldest_file_datetime = file_datetime
+                oldest_index = i
+
+        return model_path + files[oldest_index]

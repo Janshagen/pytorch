@@ -72,13 +72,8 @@ class AlphaZero(nn.Module):
         body = self.body(board)
         policies = self.policy_head(body).reshape((num_moves, -1))
 
-        zeros = torch.zeros((1, 9), device=self.device)
-        # if policy of a state is identically zero
-        if torch.any(torch.all(zeros == policies, dim=1)):
-            for i, policy in enumerate(policies):
-                if torch.all(zeros == policy):
-                    policies[i] = torch.tensor([0.111]*9, dtype=torch.float32,
-                                               device=self.device)
+        # if self.policy_is_identically_zero(policies):
+        #     self.handle_policy_is_zero_case(policies)
 
         policies = nn.functional.normalize(policies, dim=1, p=1)
         # print(policies)
@@ -88,6 +83,17 @@ class AlphaZero(nn.Module):
             body.reshape((num_moves, self.body_channels[2]*3*3))
         )
         return evaluation, policies
+
+    def policy_is_identically_zero(self, policies: torch.Tensor) -> torch.Tensor:
+        zeros = torch.zeros((1, 9), device=self.device)
+        return torch.any(torch.all(zeros == policies, dim=1))
+
+    def handle_policy_is_zero_case(self, policies):
+        zeros = torch.zeros((1, 9), device=self.device)
+        for i, policy in enumerate(policies):
+            if torch.all(zeros == policy):
+                policies[i] = torch.tensor([0.111]*9, dtype=torch.float32,
+                                           device=self.device)
 
     def state2tensor(self, game_state: TicTacToeGameState) -> torch.Tensor:
         np_board = torch.from_numpy(game_state.board).to(self.device)
