@@ -60,29 +60,45 @@ class AlphaZero(nn.Module):
                       out_channels=self.policy_channels[2],
                       kernel_size=self.policy_kernels[1],
                       device=device),
-            nn.ReLU(),
+            nn.ReLU()
         )
 
-    def forward(self, board: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        if len(board.shape) == 3:
-            board = board.expand((1, -1))
+    def forward(self, boards: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        if len(boards.shape) == 3:
+            boards = boards.expand((1, -1))
 
-        num_moves = board.shape[0]
+        num_moves = boards.shape[0]
 
-        body = self.body(board)
-        policies = self.policy_head(body).reshape((num_moves, -1))
-
-        # if self.policy_is_identically_zero(policies):
-        #     self.handle_policy_is_zero_case(policies)
-
-        policies = nn.functional.normalize(policies, dim=1, p=1)
-        # print(policies)
-        # print(board)
+        body = self.body(boards)
+        policies = self.calculate_policies(boards, num_moves, body)
 
         evaluation = self.value_head(
             body.reshape((num_moves, self.body_channels[2]*3*3))
         )
+        # print(policies, evaluation)
+        # print(board)
         return evaluation, policies
+
+    def calculate_policies(self, boards, num_moves, body):
+        policies = self.policy_head(body).reshape((num_moves, -1))
+
+        if self.policy_is_identically_zero(policies):
+            self.handle_policy_is_zero_case(policies)
+        policies = self.set_illegal_moves_to_zero(boards, policies)
+
+        policies = nn.functional.normalize(policies, dim=1, p=1)
+        return policies
+
+    def set_illegal_moves_to_zero(self, boards: torch.Tensor,
+                                  policies: torch.Tensor) -> torch.Tensor:
+        mask = torch.ones(policies.shape, device=self.device)
+        for b, board in enumerate(boards):
+            for i in range(3):
+                for j in range(3):
+                    if board[0][i][j] or board[1][i][j]:
+                        mask[b][3*i + j] = 0
+        masked_policy = policies * mask
+        return masked_policy
 
     def policy_is_identically_zero(self, policies: torch.Tensor) -> torch.Tensor:
         zeros = torch.zeros((1, 9), device=self.device)
@@ -92,8 +108,7 @@ class AlphaZero(nn.Module):
         zeros = torch.zeros((1, 9), device=self.device)
         for i, policy in enumerate(policies):
             if torch.all(zeros == policy):
-                policies[i] = torch.tensor([0.111]*9, dtype=torch.float32,
-                                           device=self.device)
+                policies[i] = policies[i] + torch.ones((1, 9), device=self.device)
 
     def state2tensor(self, game_state: TicTacToeGameState) -> torch.Tensor:
         np_board = torch.from_numpy(game_state.board).to(self.device)

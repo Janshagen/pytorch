@@ -12,8 +12,9 @@ from TicTacToeModel import AlphaZero, Loss
 LOAD_MODEL = False
 SAVE_MODEL = True
 
-LEARNING_RATE = 0.01
-N_EPOCHS = 50_000
+LEARNING_RATE = 0.2
+N_BATCHES = 20
+BATCH_SIZE = 10
 
 SIMULATIONS = 30
 UCB1 = 1.4
@@ -32,63 +33,81 @@ def main() -> None:
 
 def create_learning_data():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model = create_model(device)
 
-    model = AlphaZero(device)
-    if LOAD_MODEL:
-        model = DeepLearningData.load_model(device)
     optimizer = torch.optim.SGD(model.parameters(), lr=LEARNING_RATE)
     loss = Loss()
 
-    learning_data = DeepLearningData(model, device, loss, optimizer)
+    learning_data = DeepLearningData(model, device, loss, optimizer, N_BATCHES)
     return learning_data
+
+
+def create_model(device):
+    model = AlphaZero(device)
+    if LOAD_MODEL:
+        model = DeepLearningData.load_model(device)
+    return model
 
 
 def train(mcts: MCTS, learning_data: DeepLearningData) -> None:
     assert learning_data.loss
     assert learning_data.optimizer
-    for epoch in range(N_EPOCHS):
-        board_states, result, visits = game(mcts, learning_data)
+    for batch in range(N_BATCHES):
+        boards = torch.tensor([], device=learning_data.device)
+        results = torch.tensor([], device=learning_data.device)
+        visits = torch.tensor([], device=learning_data.device)
+        for sample in range(BATCH_SIZE):
+            game_boards, game_result, game_visits = get_game_data(mcts, learning_data)
 
-        num_moves = board_states.shape[0]
-        result = result.expand((num_moves, 1))
+            boards = torch.cat((boards, game_boards), dim=0)
+            results = torch.cat((results, game_result), dim=0)
+            visits = torch.cat((visits, game_visits), dim=0)
 
-        evaluations, policies = learning_data.model(board_states)
+        evaluations, policies = learning_data.model(boards)
 
-        error = learning_data.loss(evaluations, result, policies, visits)
+        error = learning_data.loss(evaluations, results, policies, visits)
         error.backward()
 
         learning_data.optimizer.step()
         learning_data.optimizer.zero_grad()
+        learning_data.scheduler.step()
 
-        if (epoch + 1) % (N_EPOCHS/10) == 0:
-            print_info(epoch, evaluations, error)
-
+        if (batch + 1) % (N_BATCHES/10) == 0:
+            print_info(batch, evaluations, results, error)
             if SAVE_MODEL:
                 learning_data.save_model()
 
 
-def print_info(epoch, evaluations, error):
+def get_game_data(mcts: MCTS, learning_data: DeepLearningData) -> \
+        tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    game_board_states, game_result, game_visits = game(mcts, learning_data)
+
+    num_moves = game_board_states.shape[0]
+    game_result = game_result.expand((num_moves, 1))
+    return game_board_states, game_result, game_visits
+
+
+def print_info(batch: int, evaluations: torch.Tensor,
+               result: torch.Tensor, error: torch.Tensor) -> None:
     print(
-        f'Epoch [{epoch+1}/{N_EPOCHS}], Loss: {error.item():.8f}',
-        f'evaluation: {evaluations[0].item():.4f}')
+        f'Batch [{batch+1}/{N_BATCHES}], Loss: {error.item():.8f}',
+        f'evaluation: {evaluations[0].item():.4f}, result: {result[0][0].item()}')
 
 
 def game(mcts: MCTS, learning_data: DeepLearningData) -> \
         tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
 
-    game_state = create_game_state()
-    board_states = torch.zeros((4, 3, 3, 3), device=learning_data.device)
-    board_states[:][2] = torch.ones((3, 3)) * game_state.player
+    game_state = TicTacToeGameState.new_game(random.choice([1, -1]))
+    boards = torch.zeros((4, 3, 3, 3), device=learning_data.device)
+    if game_state.player == 1:
+        for i in range(4):
+            boards[i][-1] = torch.ones((3, 3))
 
     all_visits = torch.tensor([], device=learning_data.device)
     while True:
-        game_state = perform_game_action(mcts, game_state, learning_data)
+        game_state = perform_game_action(mcts, learning_data, game_state)
         all_visits = add_number_of_visits(mcts, learning_data, all_visits)
-        board_states = add_new_rotated_board_states(
-            game_state,
-            learning_data,
-            board_states
-        )
+        boards = add_new_rotated_board_states(learning_data, game_state, boards)
 
         status = game_state.game_status()
         if TicTacToeGameState.game_over(status):
@@ -97,19 +116,13 @@ def game(mcts: MCTS, learning_data: DeepLearningData) -> \
             for _ in range(4):
                 all_visits = torch.cat((all_visits, visits.expand((1, -1))), dim=0)
 
-            return board_states, torch.tensor(
-                [status],
-                dtype=torch.float32, device=learning_data.device), all_visits
+            result = torch.tensor([status], dtype=torch.float32,
+                                  device=learning_data.device)
+            return boards, result, all_visits
 
 
-def create_game_state():
-    player = random.choice([1, -1])
-    board = np.zeros((3, 3), dtype=np.int8)
-    return TicTacToeGameState(board, player)
-
-
-def perform_game_action(mcts: MCTS, game_state: TicTacToeGameState,
-                        learning_data: DeepLearningData) -> TicTacToeGameState:
+def perform_game_action(mcts: MCTS, learning_data: DeepLearningData,
+                        game_state: TicTacToeGameState) -> TicTacToeGameState:
     move = mcts.find_move(game_state, learning_data)
     game_state.make_move(move)
     return game_state
@@ -128,8 +141,8 @@ def add_number_of_visits(mcts: MCTS, learning_data: DeepLearningData,
     return all_visits
 
 
-def add_new_rotated_board_states(game_state: TicTacToeGameState,
-                                 learning_data: DeepLearningData,
+def add_new_rotated_board_states(learning_data: DeepLearningData,
+                                 game_state: TicTacToeGameState,
                                  board_states: torch.Tensor) -> torch.Tensor:
     torch_board = learning_data.model.state2tensor(game_state)
     for i in range(4):

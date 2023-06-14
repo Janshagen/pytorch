@@ -9,6 +9,7 @@
         "MOUSEBUTTONDOWN",
         "optim",
         "rollouts",
+        "unsqueeze",
         "vinstprocent"
     ],
     "[python]": {

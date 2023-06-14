@@ -11,12 +11,18 @@ class DeepLearningData:
     def __init__(self, model: AlphaZero,
                  device: torch.device,
                  loss: Optional[Loss] = None,
-                 optimizer: Optional[torch.optim.Optimizer] = None):
+                 optimizer: Optional[torch.optim.Optimizer] = None,
+                 N_BATCHES: Optional[int] = None):
         self.model = model
         self.device = device
 
         self.loss = loss
         self.optimizer = optimizer
+
+        if self.optimizer is not None and N_BATCHES is not None:
+            self.scheduler = torch.optim.lr_scheduler.MultiStepLR(
+                self.optimizer, milestones=[N_BATCHES//10, 8*N_BATCHES//10], gamma=0.1
+            )
 
     def save_model(self):
         path = self.get_save_file()

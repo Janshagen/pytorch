@@ -49,13 +49,18 @@ def game(mcts: MCTS, game_state: TicTacToeGameState, learning_data: DeepLearning
 
         # AI
         elif game_state.player == 1:
+            torch_board = learning_data.model.state2tensor(game_state)
+            print(learning_data.model(torch_board))
             move = mcts.find_move(game_state, learning_data)
             game_state.make_move(move)
             resolveEvent(game_state, WIDTH)
 
-            torch_board = learning_data.model.state2tensor(game_state)
-            print(f"evaluation: {learning_data.model(torch_board)[0][0][0].item():.4f}")
-            print(f"policy: {learning_data.model(torch_board)[1]}")
+            # torch_board = learning_data.model.state2tensor(game_state)
+            # print(f"evaluation: {learning_data.model(torch_board)[0][0][0].item():.4f}")
+            # print(f"policy: {learning_data.model(torch_board)[1]}")
+            for child in mcts.root.children:
+                print(child.game_state.board)
+                print(child.prior)
 
         draw(screen, frame, game_state, WIDTH)
 
