@@ -61,12 +61,11 @@ class Node:
         return self.children[max_index]
 
     def backpropagate(self) -> None:
-        assert self.parent
         instance = self
         while instance is not None:
             instance.visits += 1
-            instance.value += self.parent.evaluation if instance.game_state.player == 1 \
-                else -self.parent.evaluation
+            instance.value += self.evaluation if instance.game_state.player == 1 \
+                else -self.evaluation
             instance.average_value = instance.value/instance.visits
             instance = instance.parent
 

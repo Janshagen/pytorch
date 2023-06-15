@@ -24,6 +24,7 @@ class MCTS:
     def find_move(self, game_state: TicTacToeGameState,
                   learning_data: DeepLearningData) -> tuple[int, int]:
         self.root = Node(game_state)
+        self.root = self.expand_tree(learning_data, self.root)
 
         start_time = time.process_time()
         for _ in range(self.sim_number):
@@ -51,10 +52,11 @@ class MCTS:
         return self.root.choose_move()
 
     def traverse_tree(self, current: Node) -> Node:
+        current = current.select_child(self.exploration_constant)
+        if current.visits >= 0.5*self.sim_number:
+            return current
         while len(current.children) > 0:
             current = current.select_child(self.exploration_constant)
-            if current.visits >= 0.5*self.sim_number:
-                return current
         return current
 
     def expand_tree(self, learning_data: DeepLearningData, current: Node) -> Node:
@@ -63,7 +65,7 @@ class MCTS:
         current.evaluation = evaluation.item()
 
         current.make_children(policy[0])
-        current = current.select_child(self.exploration_constant)
+        # current = current.select_child(self.exploration_constant)
         return current
 
     def maximum_time_exceeded(self, start_time: float) -> bool:
