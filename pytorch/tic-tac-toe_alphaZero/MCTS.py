@@ -1,3 +1,4 @@
+import random
 import time
 import torch
 
@@ -41,7 +42,7 @@ class MCTS:
                 assert current.move
                 return current.move
 
-            if not current.terminal_node:
+            if not current.game_state.game_over():
                 current = self.expand_tree(learning_data, current)
 
             current.backpropagate()
@@ -65,7 +66,6 @@ class MCTS:
         current.evaluation = evaluation.item()
 
         current.make_children(policy[0])
-        # current = current.select_child(self.exploration_rate)
         return current
 
     def print_data_if_verbose(self):
@@ -83,8 +83,21 @@ class MCTS:
         print('children;')
         print('visits:', end=' ')
         child_visits = [child.visits for child in self.root.children]
+        child_values = [child.value for child in self.root.children]
         child_prior = [child.prior for child in self.root.children]
         # child_visits.sort(reverse=True)
         print(child_visits)
+        print('priors:', end=' ')
         print(child_prior)
+        print('values:', end=' ')
+        print(child_values)
         print('')
+
+    def rollout(self, current: Node):
+        state = current.game_state.copy()
+        while True:
+            moves = state.available_moves()
+            state.make_move(random.choice(moves))
+
+            if state.game_over():
+                return state.get_status()

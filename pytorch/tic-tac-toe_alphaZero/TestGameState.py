@@ -67,6 +67,14 @@ class TestGameState(unittest.TestCase):
         npt.assert_array_equal(self.blanc_game_state.board,
                                self.blanc_game_state.copy().board)
 
+        copy_of_blanc = self.blanc_game_state.copy()
+        copy_of_blanc.make_move((0, 1))
+        self.assertNotEqual(self.blanc_game_state.player,
+                            copy_of_blanc.player)
+
+        npt.assert_raises(AssertionError, npt.assert_array_equal,
+                          self.blanc_game_state.board, copy_of_blanc.board)
+
     def test_available_moves(self) -> None:
         self.blanc_game_state.board = self.populated_boards[-1]
         self.assertEqual([(0, 1), (1, 0), (1, 2), (2, 0), (2, 1)],
@@ -110,12 +118,6 @@ class TestGameState(unittest.TestCase):
         self.assertEqual(-1, self.horizontal_win_state.game_status())
 
         self.assertEqual(0, self.draw_state.game_status())
-
-    def test_game_over(self) -> None:
-        self.assertTrue(TicTacToeGameState.game_over(1))
-        self.assertTrue(TicTacToeGameState.game_over(-1))
-        self.assertTrue(TicTacToeGameState.game_over(0))
-        self.assertFalse(TicTacToeGameState.game_over(2))
 
 
 if __name__ == '__main__':

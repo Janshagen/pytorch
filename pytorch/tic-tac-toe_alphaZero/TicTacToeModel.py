@@ -138,16 +138,13 @@ class AlphaZero(nn.Module):
     def forward(self, boards: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         if len(boards.shape) == 3:
             boards = torch.unsqueeze(boards, dim=0)
-        policies, evaluation = self.evaluate(boards)
-        return evaluation, policies
 
-    def evaluate(self, boards: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         body = self.initial_block(boards)
         body = self.body(body)
-        policies = self.calculate_policies(boards, body)
 
+        policies = self.calculate_policies(boards, body)
         evaluation = self.value_head(body)
-        return policies, evaluation
+        return evaluation, policies
 
     def calculate_policies(self, boards: torch.Tensor,
                            body: torch.Tensor) -> torch.Tensor:

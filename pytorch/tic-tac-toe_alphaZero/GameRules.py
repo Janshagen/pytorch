@@ -13,13 +13,17 @@ class TicTacToeGameState:
 
     board_type: TypeAlias = npt.NDArray[np.int8]
 
-    def __init__(self, board: board_type, player: int) -> None:
+    def __init__(
+            self, board: board_type, player: int,
+            status: int = GAME_NOT_OVER) -> None:
         # player is the player to make a move
         self.board = board
         self.player = player
 
+        self.status = status
+
     def copy(self) -> 'TicTacToeGameState':
-        return TicTacToeGameState(self.board.copy(), self.player)
+        return TicTacToeGameState(self.board.copy(), self.player, self.status)
 
     @staticmethod
     def new_game(player: Optional[int] = None) -> 'TicTacToeGameState':
@@ -38,9 +42,13 @@ class TicTacToeGameState:
     def make_move(self, move: tuple[int, int]) -> None:
         self.board[move[0]][move[1]] = self.player
         self.next_player()
+        self.update_status()
 
     def next_player(self) -> None:
         self.player = -self.player
+
+    def update_status(self) -> None:
+        self.status = self.game_status()
 
     def game_status(self) -> int:
         COLUMN_COUNT = 3
@@ -79,11 +87,13 @@ class TicTacToeGameState:
 
         return TicTacToeGameState.GAME_NOT_OVER
 
-    @staticmethod
-    def game_over(status) -> bool:
-        if status == TicTacToeGameState.GAME_NOT_OVER:
+    def game_over(self) -> bool:
+        if self.status == TicTacToeGameState.GAME_NOT_OVER:
             return False
         return True
+
+    def get_status(self):
+        return self.status
 
     @staticmethod
     def move2index(move) -> int:

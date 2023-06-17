@@ -91,7 +91,7 @@ def get_game_data(mcts: MCTS, learning_data: DeepLearningData) -> \
 def print_info(batch: int, evaluations: torch.Tensor,
                result: torch.Tensor, error: torch.Tensor) -> None:
     print(
-        f'Batch [{batch+1}/{N_BATCHES}], Loss: {error.item():.8f}',
+        f'Batch [{batch+1}/{N_BATCHES}], Loss: {error.item():.8f},',
         f'evaluation: {evaluations[-1].item():.4f}, result: {result[0][0].item()}')
 
 
@@ -110,14 +110,13 @@ def game(mcts: MCTS, learning_data: DeepLearningData) -> \
         all_visits = add_number_of_visits(mcts, learning_data, all_visits)
         boards = add_new_rotated_board_states(learning_data, game_state, boards)
 
-        status = game_state.game_status()
-        if TicTacToeGameState.game_over(status):
+        if game_state.game_over():
             visits = torch.tensor([0.111]*9, dtype=torch.float32,
                                   device=learning_data.device)
             for _ in range(4):
                 all_visits = torch.cat((all_visits, visits.expand((1, -1))), dim=0)
 
-            result = torch.tensor([status], dtype=torch.float32,
+            result = torch.tensor([game_state.get_status()], dtype=torch.float32,
                                   device=learning_data.device)
             return boards, result, all_visits
 

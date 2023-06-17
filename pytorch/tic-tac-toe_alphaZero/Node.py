@@ -9,7 +9,10 @@ from GameRules import TicTacToeGameState
 class Node:
     def __init__(self, game_state: TicTacToeGameState,
                  move: Optional[tuple[int, int]] = None,
-                 parent: Optional['Node'] = None) -> None:
+                 prior: float = 0,
+                 parent: Optional['Node'] = None
+                 ) -> None:
+        # game_state after move has been made
         self.game_state = game_state
 
         self.move: Optional[tuple[int, int]] = move
@@ -21,25 +24,20 @@ class Node:
         self.average_value: float = 0
         self.visits: int = 0
 
-        self.prior: float
+        self.prior: float = prior
         self.evaluation: float
-
-        self.terminal_node: bool = False
 
     def make_children(self, policy: torch.Tensor) -> None:
         moves = self.game_state.available_moves()
         for move in moves:
             state = self.game_state.copy()
             state.make_move(move)
+            prior = policy[TicTacToeGameState.move2index(move)].item()
 
-            child = Node(state, move, parent=self)
-            move_index = TicTacToeGameState.move2index(move)
-            child.prior = policy[move_index].item()
+            child = Node(state, move, prior, parent=self)
 
-            status = state.game_status()
-            if TicTacToeGameState.game_over(status):
-                self.terminal_node = True
-                child.evaluation = status
+            if state.game_over():
+                child.evaluation = state.get_status()
 
             self.children.append(child)
         random.shuffle(self.children)
@@ -55,19 +53,26 @@ class Node:
             relative_visits = np.sqrt(self.visits)/(child.visits+1)
             exploration = child.prior * relative_visits
 
-            child_evaluations[i] = self.average_value + C * exploration
+            child_evaluations[i] = child.average_value + C * exploration
 
         max_index = np.argmax(child_evaluations)
         return self.children[max_index]
 
     def backpropagate(self) -> None:
-        instance = self
-        while instance is not None:
-            instance.visits += 1
-            instance.value += self.evaluation if instance.game_state.player == 1 \
-                else -self.evaluation
-            instance.average_value = instance.value/instance.visits
-            instance = instance.parent
+        node = self
+        while node is not None:
+            node.visits += 1
+            node.value += node.corresponding_sign(self.evaluation)
+            node.average_value = node.value/node.visits
+            node = node.parent
+
+    def corresponding_sign(self, value: float) -> float:
+        if self.my_player() == 1:
+            return value
+        return -value
+
+    def my_player(self) -> int:
+        return -self.game_state.player
 
     def choose_move(self) -> tuple[int, int]:
         visits = [child.visits for child in self.children]
