@@ -13,8 +13,8 @@ LOAD_MODEL = False
 SAVE_MODEL = True
 
 LEARNING_RATE = 0.2
-N_BATCHES = 20
-BATCH_SIZE = 10
+N_BATCHES = 10_000
+BATCH_SIZE = 5
 
 SIMULATIONS = 30
 UCB1 = 1.4
@@ -24,6 +24,7 @@ def main() -> None:
     mcts = MCTS(UCB1, sim_number=SIMULATIONS)
     learning_data = create_learning_data()
 
+    print("Training Started")
     train(mcts, learning_data)
     validate(learning_data)
 
@@ -31,7 +32,7 @@ def main() -> None:
         learning_data.save_model()
 
 
-def create_learning_data():
+def create_learning_data() -> DeepLearningData:
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = create_model(device)
 
@@ -42,7 +43,7 @@ def create_learning_data():
     return learning_data
 
 
-def create_model(device):
+def create_model(device: torch.device) -> AlphaZero:
     model = AlphaZero(device)
     if LOAD_MODEL:
         model = DeepLearningData.load_model(device)
@@ -91,7 +92,7 @@ def print_info(batch: int, evaluations: torch.Tensor,
                result: torch.Tensor, error: torch.Tensor) -> None:
     print(
         f'Batch [{batch+1}/{N_BATCHES}], Loss: {error.item():.8f}',
-        f'evaluation: {evaluations[0].item():.4f}, result: {result[0][0].item()}')
+        f'evaluation: {evaluations[-1].item():.4f}, result: {result[0][0].item()}')
 
 
 def game(mcts: MCTS, learning_data: DeepLearningData) -> \
@@ -171,9 +172,9 @@ def validate(learning_data: DeepLearningData) -> None:
     torch_board3 = learning_data.model.state2tensor(game_state3)
 
     with torch.no_grad():
-        print('win 1:', learning_data.model(torch_board1))
-        print('draw:', learning_data.model(torch_board2))
-        print('win 2:', learning_data.model(torch_board3))
+        print('win 1   :', learning_data.model(torch_board1))
+        print('draw (0):', learning_data.model(torch_board2))
+        print('win -1  :', learning_data.model(torch_board3))
 
 
 if __name__ == '__main__':

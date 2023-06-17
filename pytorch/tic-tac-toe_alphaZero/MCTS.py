@@ -1,4 +1,5 @@
 import time
+import torch
 
 import numpy as np
 from DeepLearningData import DeepLearningData
@@ -8,11 +9,11 @@ from GameRules import TicTacToeGameState
 
 
 class MCTS:
-    def __init__(self, exploration_constant: float, sim_time: float = np.inf,
+    def __init__(self, exploration_rate: float, sim_time: float = np.inf,
                  sim_number: int = 1_000_000, cutoff: int = 0,
                  verbose: bool = False) -> None:
 
-        self.exploration_constant = exploration_constant
+        self.exploration_rate = exploration_rate
         self.sim_time = sim_time
         self.sim_number = sim_number
         self.cutoff = cutoff
@@ -29,16 +30,14 @@ class MCTS:
         start_time = time.process_time()
         for _ in range(self.sim_number):
             if self.maximum_time_exceeded(start_time):
-                if self.verbose:
-                    self.print_data()
+                self.print_data_if_verbose()
                 return self.root.choose_move()
 
             current = self.root
             current = self.traverse_tree(current)
 
             if current.visits >= 0.5*self.sim_number:
-                if self.verbose:
-                    self.print_data()
+                self.print_data_if_verbose()
                 assert current.move
                 return current.move
 
@@ -47,26 +46,31 @@ class MCTS:
 
             current.backpropagate()
 
-        if self.verbose:
-            self.print_data()
+        self.print_data_if_verbose()
         return self.root.choose_move()
 
     def traverse_tree(self, current: Node) -> Node:
-        current = current.select_child(self.exploration_constant)
+        current = current.select_child(self.exploration_rate)
         if current.visits >= 0.5*self.sim_number:
             return current
+
         while len(current.children) > 0:
-            current = current.select_child(self.exploration_constant)
+            current = current.select_child(self.exploration_rate)
         return current
 
     def expand_tree(self, learning_data: DeepLearningData, current: Node) -> Node:
         torch_board = learning_data.model.state2tensor(current.game_state)
-        evaluation, policy = learning_data.model(torch_board)
+        with torch.no_grad():
+            evaluation, policy = learning_data.model(torch_board)
         current.evaluation = evaluation.item()
 
         current.make_children(policy[0])
-        # current = current.select_child(self.exploration_constant)
+        # current = current.select_child(self.exploration_rate)
         return current
+
+    def print_data_if_verbose(self):
+        if self.verbose:
+            self.print_data()
 
     def maximum_time_exceeded(self, start_time: float) -> bool:
         return time.process_time() - start_time > self.sim_time

@@ -3,88 +3,158 @@ import torch.nn as nn
 from GameRules import TicTacToeGameState
 
 
+# class ResnetBlock(torch.nn.Module):
+#     def __init__(self, in_channels, mid_channels):
+#         super(ResnetBlock, self).__init__()
+#         self.model = torch.nn.Sequential(
+#             torch.nn.Conv2d(in_channels, mid_channels, 3, stride=1, padding=1),
+#             torch.nn.BatchNorm2d(mid_channels),
+
+#             torch.nn.ReLU(),
+
+#             torch.nn.Conv2d(in_channels, mid_channels, 3, stride=1, padding=1),
+#             torch.nn.BatchNorm2d(mid_channels)
+#         )
+
+#     def forward(self, X):
+#         Y = self.model(X)
+#         Y = Y + X
+#         Y = torch.nn.ReLU()(Y)
+#         return Y
+
+
+# class DropoutBlock(torch.nn.Module):
+#     def __init__(self, in_units, out_units):
+#         super(DropoutBlock, self).__init__()
+#         self.model = torch.nn.Sequential(
+#             torch.nn.Linear(in_units, out_units),
+#             torch.nn.BatchNorm1d(out_units),
+#             torch.nn.ReLU(),
+#             torch.nn.Dropout(p=args.dropout)
+#         )
+
+#     def forward(self, X):
+#         return self.model(X)
+
+
+# class CRNet(torch.nn.Module):
+#     def __init__(self, H=[200, 100], num_channels=32):
+
+#         # input shape: batch_size x 7 x args.M x args.N
+
+#         super(CRNet, self).__init__()
+#         self.epoch = None
+
+#         self.initial_block = torch.nn.Sequential(
+#             torch.nn.Conv2d(7, num_channels, 3, stride=1, padding=1),
+#             torch.nn.BatchNorm2d(num_channels),
+#             torch.nn.ReLU()
+#         )
+#         self.middle_blocks = torch.nn.Sequential(
+#             *[ResnetBlock(num_channels, num_channels) for _ in range(5)]
+#         )
+#         self.dropout_blocks = torch.nn.Sequential(
+#             DropoutBlock(num_channels * args.M * args.N, H[0]),
+#             DropoutBlock(H[0], H[1])
+#         )
+
+#         self.model = torch.nn.Sequential(
+#             self.initial_block,
+#             self.middle_blocks,
+#             torch.nn.Flatten(start_dim=1),
+#             self.dropout_blocks
+#         )
+
+#         self.value_head = torch.nn.Sequential(
+#             torch.nn.Linear(H[1], H[1]),
+#             torch.nn.ReLU(),
+#             torch.nn.Linear(H[1], 1),
+#             torch.nn.Tanh()
+#         )
+
+#         self.my_policy_head = torch.nn.Sequential(
+#             torch.nn.Linear(H[1], H[1]),
+#             torch.nn.ReLU(),
+#             torch.nn.Linear(H[1], args.M*args.N),
+#             torch.nn.Softmax(dim=-1)
+#         )
+
+class ConvBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, device, kernel_size=3, padding=1):
+        super().__init__()
+        self.model = nn.Sequential(
+            nn.Conv2d(in_channels,
+                      out_channels,
+                      kernel_size=kernel_size,
+                      stride=1,
+                      padding=padding,
+                      device=device),
+            nn.BatchNorm2d(out_channels, device=device),
+            nn.ReLU()
+        )
+
+    def forward(self, X):
+        return self.model(X)
+
+
 class AlphaZero(nn.Module):
     """Input to forward is a (3, 3, 3) tensor where
     first layer represents player 1, second layer represents player -1,
-    and third layer is filled with the value of player to make a move."""
+    and third layer is either 1 or 0."""
 
     def __init__(self, device: torch.device) -> None:
         super().__init__()
         self.device = device
 
-        self.body_channels = (3, 5, 3)
-        self.body_kernels = (3, 3)
+        self.body_channels = 8
+        self.policy_channels = 6
+        self.hidden_nodes = 32
 
-        self.out_features1 = 32
-        self.out_features2 = 16
-
-        self.policy_channels = (self.body_channels[-1], 3, 1)
-        self.policy_kernels = (2, 2)
+        self.initial_block = ConvBlock(3, self.body_channels, device)
 
         self.body = nn.Sequential(
-            nn.Conv2d(in_channels=self.body_channels[0],
-                      out_channels=self.body_channels[1],
-                      kernel_size=self.body_kernels[0],
-                      padding=1,
-                      device=device),
-            nn.ReLU(),
-            nn.BatchNorm2d(self.body_channels[1], device=device),
-            nn.Conv2d(in_channels=self.body_channels[1],
-                      out_channels=self.body_channels[2],
-                      kernel_size=self.body_kernels[1],
-                      padding=1,
-                      device=device),
-            nn.ReLU(),
-            nn.BatchNorm2d(self.body_channels[2], device=device)
-        )
-
-        self.value_head = nn.Sequential(
-            nn.Linear(self.body_channels[2]*3*3,
-                      self.out_features1, device=device),
-            nn.ReLU(),
-            nn.Linear(self.out_features1, self.out_features2, device=device),
-            nn.ReLU(),
-            nn.Linear(self.out_features2, 1, device=device),
-            nn.Tanh()
+            *[ConvBlock(self.body_channels,
+                        self.body_channels,
+                        device) for _ in range(4)]
         )
 
         self.policy_head = nn.Sequential(
-            nn.Conv2d(in_channels=self.policy_channels[0],
-                      out_channels=self.policy_channels[1],
-                      kernel_size=self.policy_kernels[0],
-                      padding=1,
-                      device=device),
+            ConvBlock(self.body_channels, self.policy_channels, device),
+            nn.Conv2d(self.policy_channels, 1, kernel_size=3, padding=1, device=device),
+            nn.BatchNorm2d(1, device=device),
+            torch.nn.Softmax(dim=-1),
+            nn.Flatten()
+        )
+
+        self.value_head = nn.Sequential(
+            ConvBlock(self.body_channels, 1, device, kernel_size=1, padding=0),
+            nn.Flatten(),
+            nn.Linear(3*3, self.hidden_nodes, device=device),
             nn.ReLU(),
-            nn.BatchNorm2d(self.policy_channels[1], device=device),
-            nn.Conv2d(in_channels=self.policy_channels[1],
-                      out_channels=self.policy_channels[2],
-                      kernel_size=self.policy_kernels[1],
-                      device=device),
-            nn.ReLU()
+            nn.Linear(self.hidden_nodes, 1, device=device),
+            nn.Tanh()
         )
 
     def forward(self, boards: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         if len(boards.shape) == 3:
-            boards = boards.expand((1, -1))
+            boards = torch.unsqueeze(boards, dim=0)
         policies, evaluation = self.evaluate(boards)
-
-        # print(policies, evaluation)
-        # print(board)
         return evaluation, policies
 
     def evaluate(self, boards: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        body = self.body(boards)
+        body = self.initial_block(boards)
+        body = self.body(body)
         policies = self.calculate_policies(boards, body)
-        evaluation = self.value_head(
-            body.reshape((boards.shape[0], self.body_channels[2]*3*3))
-        )
+
+        evaluation = self.value_head(body)
         return policies, evaluation
 
     def calculate_policies(self, boards: torch.Tensor,
                            body: torch.Tensor) -> torch.Tensor:
-        policies = self.policy_head(body).reshape((boards.shape[0], -1))
+        policies = self.policy_head(body)
 
         if self.policy_is_identically_zero(policies):
+            print("FAN DÅ")
             policies = self.handle_policy_is_zero_case(policies)
 
         policies = self.set_illegal_moves_to_zero(boards, policies)
@@ -96,11 +166,12 @@ class AlphaZero(nn.Module):
         return torch.any(torch.all(zeros == policies, dim=1))
 
     def handle_policy_is_zero_case(self, policies: torch.Tensor) -> torch.Tensor:
+        addition = torch.zeros(policies.shape, device=self.device)
         zeros = torch.zeros((1, 9), device=self.device)
         for i, policy in enumerate(policies):
             if torch.all(zeros == policy):
-                policies[i] = policies[i].clone() + torch.ones((1, 9),
-                                                               device=self.device)
+                addition[i] = torch.ones((1, 9), device=self.device)
+        policies = policies.clone() + addition
         return policies
 
     def set_illegal_moves_to_zero(self, boards: torch.Tensor,

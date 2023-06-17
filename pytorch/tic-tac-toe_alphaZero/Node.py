@@ -10,19 +10,20 @@ class Node:
     def __init__(self, game_state: TicTacToeGameState,
                  move: Optional[tuple[int, int]] = None,
                  parent: Optional['Node'] = None) -> None:
+        self.game_state = game_state
+
+        self.move: Optional[tuple[int, int]] = move
+        self.parent: Optional['Node'] = parent
+
+        self.children: list['Node'] = []
+
         self.value: float = 0
         self.average_value: float = 0
         self.visits: int = 0
-        self.parent: Optional['Node'] = parent
-        self.children: list['Node'] = []
 
-        # self.player makes self.move
-        # board after move has been made
-        self.move: Optional[tuple[int, int]] = move
-        self.game_state = game_state
-
-        self.evaluation: float
         self.prior: float
+        self.evaluation: float
+
         self.terminal_node: bool = False
 
     def make_children(self, policy: torch.Tensor) -> None:
@@ -41,7 +42,6 @@ class Node:
                 child.evaluation = status
 
             self.children.append(child)
-
         random.shuffle(self.children)
 
     def select_child(self, C: float) -> 'Node':
