@@ -26,10 +26,10 @@ class TicTacToeGameState:
         return TicTacToeGameState(self.board.copy(), self.player, self.status)
 
     @staticmethod
-    def new_game(player: Optional[int] = None) -> 'TicTacToeGameState':
+    def new_game(starting_player: Optional[int] = None) -> 'TicTacToeGameState':
         board = np.zeros((3, 3), dtype=np.int8)
-        player = player if player else -1
-        return TicTacToeGameState(board, player)
+        starting_player = starting_player if starting_player else -1
+        return TicTacToeGameState(board, starting_player)
 
     def available_moves(self) -> list[tuple[int, int]]:
         returnMoves = []
@@ -98,12 +98,3 @@ class TicTacToeGameState:
     @staticmethod
     def move2index(move) -> int:
         return TicTacToeGameState.MOVE2INDEX[move]
-
-
-# class GameState:
-#     def __init__(self, board: TicTacToeGameState.board_type, player: int) -> None:
-#         self.board = board
-#         self.player = player
-
-#     def copy(self) -> 'GameState':
-#         return GameState(self.board, self.player)

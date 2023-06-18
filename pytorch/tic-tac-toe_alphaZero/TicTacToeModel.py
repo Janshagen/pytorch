@@ -90,36 +90,57 @@ class ConvBlock(nn.Module):
                       padding=padding,
                       device=device),
             nn.BatchNorm2d(out_channels, device=device),
-            nn.ReLU()
         )
 
     def forward(self, X):
         return self.model(X)
 
 
+class ResidualBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, device, kernel_size=3, padding=1):
+        super().__init__()
+
+        self.model = nn.Sequential(
+            ConvBlock(in_channels, out_channels, device, kernel_size, padding),
+            nn.ReLU(),
+            ConvBlock(in_channels, out_channels, device, kernel_size, padding)
+        )
+
+        self.relu = nn.ReLU()
+
+    def forward(self, X):
+        Y = self.model(X)
+        Y = Y + X
+        return self.relu(Y)
+
+
 class AlphaZero(nn.Module):
     """Input to forward is a (3, 3, 3) tensor where
     first layer represents player 1, second layer represents player -1,
-    and third layer is either 1 or 0."""
+    and third layer is either 1s or 0s."""
 
     def __init__(self, device: torch.device) -> None:
         super().__init__()
         self.device = device
 
-        self.body_channels = 8
-        self.policy_channels = 6
-        self.hidden_nodes = 32
+        self.body_channels = 6
+        self.policy_channels = 4
+        self.hidden_nodes = 16
 
-        self.initial_block = ConvBlock(3, self.body_channels, device)
+        self.initial_block = nn.Sequential(
+            ConvBlock(3, self.body_channels, device),
+            nn.ReLU()
+        )
 
         self.body = nn.Sequential(
-            *[ConvBlock(self.body_channels,
-                        self.body_channels,
-                        device) for _ in range(4)]
+            *[ResidualBlock(self.body_channels,
+                            self.body_channels,
+                            device) for _ in range(4)]
         )
 
         self.policy_head = nn.Sequential(
             ConvBlock(self.body_channels, self.policy_channels, device),
+            nn.ReLU(),
             nn.Conv2d(self.policy_channels, 1, kernel_size=3, padding=1, device=device),
             nn.BatchNorm2d(1, device=device),
             torch.nn.Softmax(dim=-1),
@@ -128,6 +149,7 @@ class AlphaZero(nn.Module):
 
         self.value_head = nn.Sequential(
             ConvBlock(self.body_channels, 1, device, kernel_size=1, padding=0),
+            nn.ReLU(),
             nn.Flatten(),
             nn.Linear(3*3, self.hidden_nodes, device=device),
             nn.ReLU(),

@@ -13,7 +13,9 @@ LOAD_MODEL = False
 SAVE_MODEL = True
 
 LEARNING_RATE = 0.2
-N_BATCHES = 10_000
+WEIGHT_DECAY = 0.001
+
+N_BATCHES = 3_000
 BATCH_SIZE = 5
 
 SIMULATIONS = 30
@@ -36,7 +38,9 @@ def create_learning_data() -> DeepLearningData:
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = create_model(device)
 
-    optimizer = torch.optim.SGD(model.parameters(), lr=LEARNING_RATE)
+    optimizer = torch.optim.SGD(model.parameters(),
+                                lr=LEARNING_RATE,
+                                weight_decay=WEIGHT_DECAY)
     loss = Loss()
 
     learning_data = DeepLearningData(model, device, loss, optimizer, N_BATCHES)

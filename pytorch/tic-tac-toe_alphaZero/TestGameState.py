@@ -7,7 +7,7 @@ import numpy.testing as npt
 class TestGameState(unittest.TestCase):
 
     def setUp(self):
-        self.blanc_game_state = TicTacToeGameState.new_game(player=1)
+        self.blanc_game_state = TicTacToeGameState.new_game(starting_player=1)
 
         self.populated_boards = np.array([[
             [1, 0, 0],

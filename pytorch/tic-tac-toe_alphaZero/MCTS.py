@@ -26,7 +26,6 @@ class MCTS:
     def find_move(self, game_state: TicTacToeGameState,
                   learning_data: DeepLearningData) -> tuple[int, int]:
         self.root = Node(game_state)
-        self.root = self.expand_tree(learning_data, self.root)
 
         start_time = time.process_time()
         for _ in range(self.sim_number):
@@ -37,7 +36,7 @@ class MCTS:
             current = self.root
             current = self.traverse_tree(current)
 
-            if current.visits >= 0.5*self.sim_number:
+            if current.visits > 0.5*self.sim_number:
                 self.print_data_if_verbose()
                 assert current.move
                 return current.move
@@ -52,7 +51,7 @@ class MCTS:
 
     def traverse_tree(self, current: Node) -> Node:
         current = current.select_child(self.exploration_rate)
-        if current.visits >= 0.5*self.sim_number:
+        if current.visits > 0.5*self.sim_number:
             return current
 
         while len(current.children) > 0:
@@ -78,19 +77,18 @@ class MCTS:
     def print_data(self) -> None:
         visits, val, p = self.root.visits, self.root.value, self.root.game_state.player
         print(
-            f'root; player: {p}, rollouts: {visits}, value: {round(val*1, 2)}',
+            f'root; player: {p}, rollouts: {visits}, value: {round(val, 2)}',
             f'vinstprocent: {round((visits+val)*50/visits, 2)}%')
         print('children;')
         print('visits:', end=' ')
         child_visits = [child.visits for child in self.root.children]
-        child_values = [child.value for child in self.root.children]
-        child_prior = [child.prior for child in self.root.children]
-        # child_visits.sort(reverse=True)
+        child_values = [round(child.value, 2) for child in self.root.children]
+        child_prior = [round(child.prior, 3) for child in self.root.children]
         print(child_visits)
-        print('priors:', end=' ')
-        print(child_prior)
         print('values:', end=' ')
         print(child_values)
+        print('priors:', end=' ')
+        print(child_prior)
         print('')
 
     def rollout(self, current: Node):

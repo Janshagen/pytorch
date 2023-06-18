@@ -9,23 +9,24 @@ from interface import (chooseConfig, draw, gameOver, initializeGame,
 
 
 # Configurations
-SIMULATIONS = 1000
+SIMULATIONS = 300
 WIDTH = 200
-UCB1 = 1.4
+UCB1 = 3
 
 
 def main() -> None:
     sims = chooseConfig(SIMULATIONS)
     screen, frame = initializeGame(WIDTH)
 
-    game_state = TicTacToeGameState.new_game()
+    game_state = TicTacToeGameState.new_game(starting_player=1)
     learning_data = create_learning_data()
-    mcts = MCTS(UCB1, sim_number=sims)
+    mcts = MCTS(UCB1, sim_number=sims, verbose=True)
 
     draw(screen, frame, game_state, WIDTH)
 
     result = game(mcts, game_state, learning_data,  screen, frame)
     if not gameOver(screen, result, WIDTH):
+        print("###### NEW GAME ######")
         main()
 
 
@@ -53,7 +54,7 @@ def game(mcts: MCTS, game_state: TicTacToeGameState, learning_data: DeepLearning
             game_state.make_move(move)
             resolveEvent(game_state, WIDTH)
 
-            print_data(game_state, learning_data)
+            # print_data(game_state, learning_data)
 
         draw(screen, frame, game_state, WIDTH)
 

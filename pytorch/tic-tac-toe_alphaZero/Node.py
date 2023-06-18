@@ -1,4 +1,3 @@
-import random
 from typing import Optional
 
 import numpy as np
@@ -40,7 +39,6 @@ class Node:
                 child.evaluation = state.get_status()
 
             self.children.append(child)
-        random.shuffle(self.children)
 
     def select_child(self, C: float) -> 'Node':
         if len(self.children) == 0:
@@ -72,6 +70,8 @@ class Node:
         return -value
 
     def my_player(self) -> int:
+        if self.parent is None:
+            return self.game_state.player
         return -self.game_state.player
 
     def choose_move(self) -> tuple[int, int]:
