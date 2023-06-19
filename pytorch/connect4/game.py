@@ -40,7 +40,8 @@ def main() -> None:
         main()
 
 
-def game(gameState: np.ndarray, screen: pygame.Surface, frame: pygame.Surface, model: torch.nn.Module, device: torch.device) -> tuple:
+def game(gameState: np.ndarray, screen: pygame.Surface, frame: pygame.Surface,
+         model: torch.nn.Module, device: torch.device) -> tuple:
     player = random.choice([1, -1])
     draw(screen, frame, gameState, WIDTH, HEIGHT)
     while True:
@@ -56,7 +57,7 @@ def game(gameState: np.ndarray, screen: pygame.Surface, frame: pygame.Surface, m
             # print('Prediction after human move:', torch.softmax(model(model.board2tensor(
             #    gameState, player, device))[0][0], dim=0))
             move = MCTSfindMove(gameState, player, SIMULATIONS,
-                                UCB1, model, device, cutoff=True)
+                                UCB1, model, device, cutoff=False)
             row = makeMove(gameState, player, move)
             player = nextPlayer(player)
             resolveEvent(gameState, 0, WIDTH)

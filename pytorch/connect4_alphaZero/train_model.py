@@ -4,9 +4,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 from TrainingData import TrainingData
-from GameRulesTicTacToe import TicTacToeGameState
+from GameRules import Connect4GameState
 from MCTS import MCTS
-from TicTacToeModel import AlphaZero, Loss
+from Connect4Model import AlphaZero, Loss
 
 # Constants
 LOAD_MODEL = False
@@ -98,7 +98,7 @@ def print_info(batch: int, evaluations: torch.Tensor,
 def game(mcts: MCTS, learning_data: TrainingData) -> \
         tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
 
-    game_state = TicTacToeGameState.new_game(random.choice([1, -1]))
+    game_state = Connect4GameState.new_game(random.choice([1, -1]))
     boards = torch.zeros((4, 3, 3, 3), device=learning_data.device)
     if game_state.player == 1:
         for i in range(4):
@@ -122,7 +122,7 @@ def game(mcts: MCTS, learning_data: TrainingData) -> \
 
 
 def perform_game_action(mcts: MCTS,
-                        game_state: TicTacToeGameState) -> TicTacToeGameState:
+                        game_state: Connect4GameState) -> Connect4GameState:
     move = mcts.find_move(game_state)
     game_state.make_move(move)
     return game_state
@@ -132,7 +132,8 @@ def add_number_of_visits(mcts: MCTS, learning_data: TrainingData,
                          all_visits: torch.Tensor) -> torch.Tensor:
     visits = [0]*9
     for child in mcts.root.children:
-        visits[TicTacToeGameState.move2index(child.move)] = child.visits
+        assert child.move
+        visits[child.move] = child.visits
 
     visits = torch.tensor(visits, dtype=torch.float32, device=learning_data.device)
     visits = nn.functional.normalize(visits, dim=0, p=1)
@@ -142,7 +143,7 @@ def add_number_of_visits(mcts: MCTS, learning_data: TrainingData,
 
 
 def add_new_rotated_board_states(learning_data: TrainingData,
-                                 game_state: TicTacToeGameState,
+                                 game_state: Connect4GameState,
                                  board_states: torch.Tensor) -> torch.Tensor:
     torch_board = learning_data.model.state2tensor(game_state)
     for i in range(4):
@@ -155,19 +156,19 @@ def validate(learning_data: TrainingData) -> None:
     win1 = np.array([[1, 1, 1],
                      [-1, 0, -1],
                      [-1, 0, 0]])
-    game_state1 = TicTacToeGameState(win1, -1)
+    game_state1 = Connect4GameState(win1, -1)
     torch_board1 = learning_data.model.state2tensor(game_state1)
 
     draw = np.array([[1, -1, 1],
                      [-1, 1, -1],
                      [-1, 1, -1]])
-    game_state2 = TicTacToeGameState(draw, 1)
+    game_state2 = Connect4GameState(draw, 1)
     torch_board2 = learning_data.model.state2tensor(game_state2)
 
     win2 = np.array([[-1, 1, 1],
                      [-1, 1, -1],
                      [-1, -1, 1]])
-    game_state3 = TicTacToeGameState(win2, 1)
+    game_state3 = Connect4GameState(win2, 1)
     torch_board3 = learning_data.model.state2tensor(game_state3)
 
     with torch.no_grad():

@@ -1,7 +1,7 @@
 from datetime import datetime
 
 import torch
-from TicTacToeModel import AlphaZero, Loss
+from Connect4Model import AlphaZero, Loss
 
 
 class TrainingData:

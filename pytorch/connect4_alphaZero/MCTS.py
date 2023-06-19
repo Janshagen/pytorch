@@ -3,9 +3,9 @@ import time
 
 import numpy as np
 import torch
-from GameRulesTicTacToe import TicTacToeGameState
+from GameRules import Connect4GameState
 from Node import Node
-from TicTacToeModel import AlphaZero
+from Connect4Model import AlphaZero
 
 
 class MCTS:
@@ -22,7 +22,7 @@ class MCTS:
 
         self.verbose = verbose
 
-    def find_move(self, game_state: TicTacToeGameState) -> tuple[int, int]:
+    def find_move(self, game_state: Connect4GameState) -> int:
         self.root = Node(game_state)
 
         start_time = time.process_time()

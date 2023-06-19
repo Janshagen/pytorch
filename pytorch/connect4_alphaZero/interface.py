@@ -1,7 +1,8 @@
 import pygame
 import sys
-import numpy as np
-from gameplay import availableMoves
+from typing import Optional
+
+from GameRules import Connect4GameState
 
 WHITE = (230, 230, 230)
 GREY = (180, 180, 180)
@@ -9,8 +10,8 @@ PURPLE = (138, 43, 226)
 RED = (220, 20, 60)
 
 
-def initializeGame(WIDTH: int, HEIGHT: int):
-    gameState = np.zeros((6, 7))
+def initialize_game(WIDTH: int, HEIGHT: int) -> \
+        tuple[pygame.surface.Surface, pygame.Surface]:
 
     pygame.init()
     screen = pygame.display.set_mode((7 * WIDTH, 7 * HEIGHT))
@@ -22,23 +23,50 @@ def initializeGame(WIDTH: int, HEIGHT: int):
                                int2coord(i, j, WIDTH, HEIGHT), WIDTH//3)
     frame.set_colorkey(WHITE)
 
-    return gameState, screen, frame
+    return screen, frame
 
 
-def draw(screen: pygame.Surface, frame: pygame.Surface, board: np.ndarray, WIDTH: int, HEIGHT: int, move: int = None, player: int = 0) -> None:
-    if type(move) == int:
-        animatePiece(screen, frame, board, move, player, WIDTH, HEIGHT)
+def int2coord(i: int, j: int, w: int, h: int) -> tuple[float, float]:
+    return (w*i + w/2, h*j + h/2)
+
+
+def draw(screen: pygame.surface.Surface, frame: pygame.Surface,
+         game_state: Connect4GameState, WIDTH: int, HEIGHT: int,
+         move: Optional[int] = None) -> None:
+    if move:
+        animate_piece(screen, frame, game_state, move, WIDTH, HEIGHT)
 
     screen.fill(WHITE)
-    drawPieces(screen, board, player, WIDTH, HEIGHT)
+    draw_pieces(screen, game_state, WIDTH, HEIGHT)
     screen.blit(frame, (0, HEIGHT))
 
     pygame.display.flip()
 
 
-def drawPieces(screen: pygame.Surface, board: np.ndarray, player, WIDTH: int, HEIGHT: int, lastPlaced: tuple = (None, None)) -> None:
+def animate_piece(screen: pygame.surface.Surface, frame: pygame.Surface,
+                  game_state: Connect4GameState, move: int, w: int, h: int):
+    row = 0
+    for row in range(6):
+        if game_state.board[row][move] != 0:
+            break
+
+    color = RED if game_state.player == 1 else PURPLE
+    y = 0
+    while y < (row+1)*h:
+        screen.fill(WHITE)
+        draw_pieces(screen, game_state, w, h, (row, move))
+        pygame.draw.circle(screen, color,
+                           (w*move + w/2, y+h/2), w // 3)
+        screen.blit(frame, (0, h))
+        y += h*0.012
+        pygame.display.flip()
+
+
+def draw_pieces(screen: pygame.surface.Surface, game_state: Connect4GameState,
+                WIDTH: int, HEIGHT: int,
+                lastPlaced: tuple = (None, None)) -> None:
     # placed pieces
-    for i, row in enumerate(board):
+    for i, row in enumerate(game_state.board):
         for j, spot in enumerate(row):
             if (i, j) == lastPlaced:
                 continue
@@ -48,53 +76,44 @@ def drawPieces(screen: pygame.Surface, board: np.ndarray, player, WIDTH: int, HE
             elif spot == -1:
                 pygame.draw.circle(screen, RED,
                                    int2coord(j, i+1, WIDTH, HEIGHT), WIDTH // 3)
-    color = PURPLE if player == 1 else RED
+    color = PURPLE if game_state.player == 1 else RED
     # moving piece
-    mPos = mousePos(WIDTH)
-    mPos = mPos if mPos != None else 3
+    mPos = mouse_position(WIDTH)
+    mPos = mPos if mPos is not None else 3
     pygame.draw.circle(screen, color,
                        int2coord(mPos, 0, WIDTH, HEIGHT), WIDTH // 3)
 
 
-def animatePiece(screen: pygame.Surface, frame: pygame.Surface, board: np.ndarray, col: int, player: int, w: int, h: int):
-    for row in range(6):
-        if board[row][col] != 0:
-            break
-
-    color = RED if player == 1 else PURPLE
-    y = 0
-    while y < (row+1)*h:
-        screen.fill(WHITE)
-        drawPieces(screen, board, player, w, h, (row, col))
-        pygame.draw.circle(screen, color,
-                           (w*col + w/2, y+h/2), w // 3)
-        screen.blit(frame, (0, h))
-        y += h*0.012
-        pygame.display.flip()
-
-
-def resolveEvent(board: np.ndarray, player: int, WIDTH: int):
+def resolve_event(game_state: Connect4GameState, WIDTH: int) -> Optional[int]:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
 
-        if event.type == pygame.MOUSEBUTTONDOWN and player:
-            return placePiece(board, WIDTH)
-    return False
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            return place_piece(game_state, WIDTH)
+    return None
 
 
-def placePiece(board: np.ndarray, WIDTH: int):
-    moves = availableMoves(board)
-    mPos = mousePos(WIDTH)
+def place_piece(game_state: Connect4GameState, WIDTH: int) -> Optional[int]:
+    moves = game_state.available_moves()
+    mouse_pos = mouse_position(WIDTH)
 
-    if mPos in moves:
-        return mPos
-    return False
+    if mouse_pos in moves:
+        return mouse_pos
+    return None
 
 
-def gameOver(screen: pygame.Surface, result: np.ndarray, WIDTH: int) -> bool:
-    color = PURPLE if result[0] == 1 else RED
+def mouse_position(WIDTH: int) -> Optional[int]:
+    mPos = pygame.mouse.get_pos()[0]
+    for i in range(7):
+        if WIDTH * i < mPos <= WIDTH * (i+1):
+            return i
+    return None
+
+
+def game_over(screen: pygame.surface.Surface, result: int, WIDTH: int) -> bool:
+    color = PURPLE if result == 1 else RED
     font = pygame.font.Font(None, 128)
     while True:
         win = font.render("Winner", True, color)
@@ -109,19 +128,7 @@ def gameOver(screen: pygame.Surface, result: np.ndarray, WIDTH: int) -> bool:
                 return False
 
 
-def int2coord(i: int, j: int, w: int, h: int) -> np.ndarray:
-    return np.array([w*i + w/2, h*j + h/2])
-
-
-def mousePos(WIDTH: int):
-    mPos = pygame.mouse.get_pos()[0]
-    for i in range(7):
-        if WIDTH * i < mPos <= WIDTH * (i+1):
-            return i
-    return None
-
-
-def chooseConfig(SIMULATIONS: int) -> int:
+def choose_config(SIMULATIONS: int) -> int:
     if len(sys.argv) == 1:
         return SIMULATIONS
 
@@ -130,10 +137,13 @@ def chooseConfig(SIMULATIONS: int) -> int:
             sims = int(sys.argv[1])
         except ValueError:
             print(
-                '\n Usage: \n No arguments; 1000 simulations \n One argument; {Number of simulations (int)}')
+                '\n Usage: \n No arguments; 1000 simulations \n \
+                One argument; \
+                {Number of simulations (int)}')
             sys.exit()
         return sims
 
     print(
-        '\n Usage: \n No arguments; 1000 simulations \n One argument; {Number of simulations (int)}')
+        '\n Usage: \n No arguments; 1000 simulations \n One argument; \
+        {Number of simulations (int)}')
     sys.exit()

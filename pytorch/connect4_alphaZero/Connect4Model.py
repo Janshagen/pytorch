@@ -5,7 +5,7 @@ from typing import Optional
 
 import torch
 import torch.nn as nn
-from GameRulesTicTacToe import TicTacToeGameState
+from GameRules import Connect4GameState
 
 
 # class DropoutBlock(torch.nn.Module):
@@ -195,7 +195,7 @@ class AlphaZero(nn.Module):
     def square_is_occupied(self, board: torch.Tensor, i: int, j: int) -> bool:
         return bool(board[0][i][j] or board[1][i][j])
 
-    def state2tensor(self, game_state: TicTacToeGameState) -> torch.Tensor:
+    def state2tensor(self, game_state: Connect4GameState) -> torch.Tensor:
         np_board = torch.from_numpy(game_state.board).to(self.device)
         ones = torch.ones((3, 3)).to(self.device)
         zeros = torch.zeros((3, 3)).to(self.device)

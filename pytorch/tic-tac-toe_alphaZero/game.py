@@ -7,7 +7,7 @@ from interface import (chooseConfig, draw, gameOver, initializeGame,
 
 
 # Configurations
-SIMULATIONS = 300
+SIMULATIONS = 1000
 WIDTH = 200
 EXPLORATION_RATE = 1.4
 
@@ -43,7 +43,7 @@ def game(mcts: MCTS, game_state: TicTacToeGameState,
             game_state.make_move(move)
             resolveEvent(game_state, WIDTH)
 
-            # print_data(game_state, learning_data)
+            # print_data(game_state, mcts.model)
 
         draw(screen, frame, game_state, WIDTH)
 

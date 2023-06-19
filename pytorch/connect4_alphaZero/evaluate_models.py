@@ -1,6 +1,6 @@
 import random
-from TicTacToeModel import AlphaZero
-from GameRulesTicTacToe import TicTacToeGameState
+from Connect4Model import AlphaZero
+from GameRules import Connect4GameState
 from MCTS import MCTS
 
 EXPLORATION_RATE = 1.4
@@ -27,8 +27,8 @@ def main():
 
 
 def game(mcts_A: MCTS, mcts_B: MCTS) -> int:
-    game_state = TicTacToeGameState.new_game(random.choice([1, -1]))
-    move = (0, 0)
+    game_state = Connect4GameState.new_game(random.choice([1, -1]))
+    move = 0
     while True:
         if game_state.player == -1:
             move = mcts_A.find_move(game_state)

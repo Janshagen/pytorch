@@ -2,19 +2,19 @@ from typing import Optional
 
 import numpy as np
 import torch
-from GameRulesTicTacToe import TicTacToeGameState
+from GameRules import Connect4GameState
 
 
 class Node:
-    def __init__(self, game_state: TicTacToeGameState,
-                 move: Optional[tuple[int, int]] = None,
+    def __init__(self, game_state: Connect4GameState,
+                 move: Optional[int] = None,
                  prior: float = 0,
                  parent: Optional['Node'] = None
                  ) -> None:
         # game_state after move has been made
         self.game_state = game_state
 
-        self.move: Optional[tuple[int, int]] = move
+        self.move: Optional[int] = move
         self.parent: Optional['Node'] = parent
 
         self.children: list['Node'] = []
@@ -31,7 +31,7 @@ class Node:
         for move in moves:
             state = self.game_state.copy()
             state.make_move(move)
-            prior = policy[TicTacToeGameState.move2index(move)].item()
+            prior = policy[move].item()
 
             child = Node(state, move, prior, parent=self)
 
@@ -76,7 +76,7 @@ class Node:
             return self.game_state.player
         return -self.game_state.player
 
-    def choose_move(self) -> tuple[int, int]:
+    def choose_move(self) -> int:
         visits = [child.visits for child in self.children]
         max_visits = max(visits)
         max_index = visits.index(max_visits)
