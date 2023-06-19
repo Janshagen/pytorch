@@ -105,19 +105,19 @@ class TestGameState(unittest.TestCase):
         self.assertEqual(1, self.blanc_game_state.player)
 
     def test_game_status(self) -> None:
-        self.assertEqual(1, self.diagonal_win_state.game_status())
+        self.assertEqual(1, self.diagonal_win_state.calculate_game_status())
         self.diagonal_win_state.board = -self.diagonal_win_state.board
-        self.assertEqual(-1, self.diagonal_win_state.game_status())
+        self.assertEqual(-1, self.diagonal_win_state.calculate_game_status())
 
-        self.assertEqual(1, self.vertical_win_state.game_status())
+        self.assertEqual(1, self.vertical_win_state.calculate_game_status())
         self.vertical_win_state.board = -self.vertical_win_state.board
-        self.assertEqual(-1, self.vertical_win_state.game_status())
+        self.assertEqual(-1, self.vertical_win_state.calculate_game_status())
 
-        self.assertEqual(1, self.horizontal_win_state.game_status())
+        self.assertEqual(1, self.horizontal_win_state.calculate_game_status())
         self.horizontal_win_state.board = -self.horizontal_win_state.board
-        self.assertEqual(-1, self.horizontal_win_state.game_status())
+        self.assertEqual(-1, self.horizontal_win_state.calculate_game_status())
 
-        self.assertEqual(0, self.draw_state.game_status())
+        self.assertEqual(0, self.draw_state.calculate_game_status())
 
 
 if __name__ == '__main__':

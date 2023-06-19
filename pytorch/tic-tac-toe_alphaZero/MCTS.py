@@ -1,30 +1,28 @@
 import random
 import time
-import torch
 
 import numpy as np
-from DeepLearningData import DeepLearningData
-from Node import Node
-
+import torch
 from GameRules import TicTacToeGameState
+from Node import Node
+from TicTacToeModel import AlphaZero
 
 
 class MCTS:
-    def __init__(self, exploration_rate: float, sim_time: float = np.inf,
-                 sim_number: int = 1_000_000, cutoff: int = 0,
+    def __init__(self, model: AlphaZero, exploration_rate: float,
+                 sim_time: float = np.inf, sim_number: int = 1_000_000,
                  verbose: bool = False) -> None:
 
         self.exploration_rate = exploration_rate
         self.sim_time = sim_time
         self.sim_number = sim_number
-        self.cutoff = cutoff
 
+        self.model = model
         self.root: Node
 
         self.verbose = verbose
 
-    def find_move(self, game_state: TicTacToeGameState,
-                  learning_data: DeepLearningData) -> tuple[int, int]:
+    def find_move(self, game_state: TicTacToeGameState) -> tuple[int, int]:
         self.root = Node(game_state)
 
         start_time = time.process_time()
@@ -42,7 +40,7 @@ class MCTS:
                 return current.move
 
             if not current.game_state.game_over():
-                current = self.expand_tree(learning_data, current)
+                current = self.expand_tree(current)
 
             current.backpropagate()
 
@@ -58,10 +56,10 @@ class MCTS:
             current = current.select_child(self.exploration_rate)
         return current
 
-    def expand_tree(self, learning_data: DeepLearningData, current: Node) -> Node:
-        torch_board = learning_data.model.state2tensor(current.game_state)
+    def expand_tree(self, current: Node) -> Node:
+        torch_board = self.model.state2tensor(current.game_state)
         with torch.no_grad():
-            evaluation, policy = learning_data.model(torch_board)
+            evaluation, policy = self.model(torch_board)
         current.evaluation = evaluation.item()
 
         current.make_children(policy[0])

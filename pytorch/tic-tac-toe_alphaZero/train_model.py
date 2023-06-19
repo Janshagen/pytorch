@@ -3,9 +3,9 @@ import random
 import numpy as np
 import torch
 import torch.nn as nn
-from MCTS import MCTS
-from DeepLearningData import DeepLearningData
+from TrainingData import TrainingData
 from GameRules import TicTacToeGameState
+from MCTS import MCTS
 from TicTacToeModel import AlphaZero, Loss
 
 # Constants
@@ -23,8 +23,8 @@ UCB1 = 1.4
 
 
 def main() -> None:
-    mcts = MCTS(UCB1, sim_number=SIMULATIONS)
     learning_data = create_learning_data()
+    mcts = MCTS(learning_data.model, UCB1, sim_number=SIMULATIONS)
 
     print("Training Started")
     train(mcts, learning_data)
@@ -34,29 +34,25 @@ def main() -> None:
         learning_data.save_model()
 
 
-def create_learning_data() -> DeepLearningData:
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = create_model(device)
-
+def create_learning_data() -> TrainingData:
+    model = create_model()
     optimizer = torch.optim.SGD(model.parameters(),
                                 lr=LEARNING_RATE,
                                 weight_decay=WEIGHT_DECAY)
     loss = Loss()
 
-    learning_data = DeepLearningData(model, device, loss, optimizer, N_BATCHES)
+    learning_data = TrainingData(model, loss, optimizer, N_BATCHES)
     return learning_data
 
 
-def create_model(device: torch.device) -> AlphaZero:
-    model = AlphaZero(device)
+def create_model() -> AlphaZero:
+    model = AlphaZero()
     if LOAD_MODEL:
-        model = DeepLearningData.load_model(device)
+        model = model.load_model()
     return model
 
 
-def train(mcts: MCTS, learning_data: DeepLearningData) -> None:
-    assert learning_data.loss
-    assert learning_data.optimizer
+def train(mcts: MCTS, learning_data: TrainingData) -> None:
     for batch in range(N_BATCHES):
         boards = torch.tensor([], device=learning_data.device)
         results = torch.tensor([], device=learning_data.device)
@@ -83,7 +79,7 @@ def train(mcts: MCTS, learning_data: DeepLearningData) -> None:
                 learning_data.save_model()
 
 
-def get_game_data(mcts: MCTS, learning_data: DeepLearningData) -> \
+def get_game_data(mcts: MCTS, learning_data: TrainingData) -> \
         tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     game_board_states, game_result, game_visits = game(mcts, learning_data)
 
@@ -99,7 +95,7 @@ def print_info(batch: int, evaluations: torch.Tensor,
         f'evaluation: {evaluations[-1].item():.4f}, result: {result[0][0].item()}')
 
 
-def game(mcts: MCTS, learning_data: DeepLearningData) -> \
+def game(mcts: MCTS, learning_data: TrainingData) -> \
         tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
 
     game_state = TicTacToeGameState.new_game(random.choice([1, -1]))
@@ -110,7 +106,7 @@ def game(mcts: MCTS, learning_data: DeepLearningData) -> \
 
     all_visits = torch.tensor([], device=learning_data.device)
     while True:
-        game_state = perform_game_action(mcts, learning_data, game_state)
+        game_state = perform_game_action(mcts, game_state)
         all_visits = add_number_of_visits(mcts, learning_data, all_visits)
         boards = add_new_rotated_board_states(learning_data, game_state, boards)
 
@@ -125,14 +121,14 @@ def game(mcts: MCTS, learning_data: DeepLearningData) -> \
             return boards, result, all_visits
 
 
-def perform_game_action(mcts: MCTS, learning_data: DeepLearningData,
+def perform_game_action(mcts: MCTS,
                         game_state: TicTacToeGameState) -> TicTacToeGameState:
-    move = mcts.find_move(game_state, learning_data)
+    move = mcts.find_move(game_state)
     game_state.make_move(move)
     return game_state
 
 
-def add_number_of_visits(mcts: MCTS, learning_data: DeepLearningData,
+def add_number_of_visits(mcts: MCTS, learning_data: TrainingData,
                          all_visits: torch.Tensor) -> torch.Tensor:
     visits = [0]*9
     for child in mcts.root.children:
@@ -145,7 +141,7 @@ def add_number_of_visits(mcts: MCTS, learning_data: DeepLearningData,
     return all_visits
 
 
-def add_new_rotated_board_states(learning_data: DeepLearningData,
+def add_new_rotated_board_states(learning_data: TrainingData,
                                  game_state: TicTacToeGameState,
                                  board_states: torch.Tensor) -> torch.Tensor:
     torch_board = learning_data.model.state2tensor(game_state)
@@ -155,7 +151,7 @@ def add_new_rotated_board_states(learning_data: DeepLearningData,
     return board_states
 
 
-def validate(learning_data: DeepLearningData) -> None:
+def validate(learning_data: TrainingData) -> None:
     win1 = np.array([[1, 1, 1],
                      [-1, 0, -1],
                      [-1, 0, 0]])

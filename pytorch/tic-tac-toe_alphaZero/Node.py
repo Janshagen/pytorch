@@ -46,15 +46,17 @@ class Node:
 
         child_evaluations = np.zeros(len(self.children))
         for i, child in enumerate(self.children):
-            assert child.parent
-
-            relative_visits = np.sqrt(self.visits)/(child.visits+1)
-            exploration = child.prior * relative_visits
-
-            child_evaluations[i] = child.average_value + C * exploration
+            child_evaluations[i] = self.calculate_PUCT(C, child)
 
         max_index = np.argmax(child_evaluations)
         return self.children[max_index]
+
+    def calculate_PUCT(self, C: float, child: 'Node') -> float:
+        relative_visits = np.sqrt(self.visits)/(child.visits+1)
+        exploration = child.prior * relative_visits
+
+        value = child.average_value + C * exploration
+        return value
 
     def backpropagate(self) -> None:
         node = self

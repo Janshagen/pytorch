@@ -13,9 +13,8 @@ class TicTacToeGameState:
 
     board_type: TypeAlias = npt.NDArray[np.int8]
 
-    def __init__(
-            self, board: board_type, player: int,
-            status: int = GAME_NOT_OVER) -> None:
+    def __init__(self, board: board_type, player: int,
+                 status: int = GAME_NOT_OVER) -> None:
         # player is the player to make a move
         self.board = board
         self.player = player
@@ -48,9 +47,9 @@ class TicTacToeGameState:
         self.player = -self.player
 
     def update_status(self) -> None:
-        self.status = self.game_status()
+        self.status = self.calculate_game_status()
 
-    def game_status(self) -> int:
+    def calculate_game_status(self) -> int:
         COLUMN_COUNT = 3
         ROW_COUNT = 3
 

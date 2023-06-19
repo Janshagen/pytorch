@@ -8,6 +8,7 @@
         "KEYDOWN",
         "MOUSEBUTTONDOWN",
         "optim",
+        "PUCT",
         "rollouts",
         "unsqueeze",
         "vinstprocent"

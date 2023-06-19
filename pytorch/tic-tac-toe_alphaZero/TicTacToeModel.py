@@ -1,26 +1,11 @@
+import os
+import re
+from datetime import datetime
+from typing import Optional
+
 import torch
 import torch.nn as nn
 from GameRules import TicTacToeGameState
-
-
-# class ResnetBlock(torch.nn.Module):
-#     def __init__(self, in_channels, mid_channels):
-#         super(ResnetBlock, self).__init__()
-#         self.model = torch.nn.Sequential(
-#             torch.nn.Conv2d(in_channels, mid_channels, 3, stride=1, padding=1),
-#             torch.nn.BatchNorm2d(mid_channels),
-
-#             torch.nn.ReLU(),
-
-#             torch.nn.Conv2d(in_channels, mid_channels, 3, stride=1, padding=1),
-#             torch.nn.BatchNorm2d(mid_channels)
-#         )
-
-#     def forward(self, X):
-#         Y = self.model(X)
-#         Y = Y + X
-#         Y = torch.nn.ReLU()(Y)
-#         return Y
 
 
 # class DropoutBlock(torch.nn.Module):
@@ -119,41 +104,44 @@ class AlphaZero(nn.Module):
     first layer represents player 1, second layer represents player -1,
     and third layer is either 1s or 0s."""
 
-    def __init__(self, device: torch.device) -> None:
+    def __init__(self) -> None:
         super().__init__()
-        self.device = device
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
         self.body_channels = 6
         self.policy_channels = 4
         self.hidden_nodes = 16
 
         self.initial_block = nn.Sequential(
-            ConvBlock(3, self.body_channels, device),
+            ConvBlock(3, self.body_channels, self.device),
             nn.ReLU()
         )
 
         self.body = nn.Sequential(
             *[ResidualBlock(self.body_channels,
                             self.body_channels,
-                            device) for _ in range(4)]
+                            self.device) for _ in range(4)]
         )
 
         self.policy_head = nn.Sequential(
-            ConvBlock(self.body_channels, self.policy_channels, device),
+            ConvBlock(self.body_channels, self.policy_channels, self.device),
             nn.ReLU(),
-            nn.Conv2d(self.policy_channels, 1, kernel_size=3, padding=1, device=device),
-            nn.BatchNorm2d(1, device=device),
+            nn.Conv2d(self.policy_channels, 1,
+                      kernel_size=3,
+                      padding=1,
+                      device=self.device),
+            nn.BatchNorm2d(1, device=self.device),
             torch.nn.Softmax(dim=-1),
             nn.Flatten()
         )
 
         self.value_head = nn.Sequential(
-            ConvBlock(self.body_channels, 1, device, kernel_size=1, padding=0),
+            ConvBlock(self.body_channels, 1, self.device, kernel_size=1, padding=0),
             nn.ReLU(),
             nn.Flatten(),
-            nn.Linear(3*3, self.hidden_nodes, device=device),
+            nn.Linear(3*3, self.hidden_nodes, device=self.device),
             nn.ReLU(),
-            nn.Linear(self.hidden_nodes, 1, device=device),
+            nn.Linear(self.hidden_nodes, 1, device=self.device),
             nn.Tanh()
         )
 
@@ -217,6 +205,36 @@ class AlphaZero(nn.Module):
         input[0][1] = (np_board == -ones).float()
         input[0][2] = ones if game_state.player == 1 else zeros
         return input
+
+    def load_model(self, file: Optional[str] = None):
+        model = AlphaZero()
+        model.load_state_dict(torch.load(self.get_load_file(file)))
+        model.to(self.device)
+        model.eval()
+        return model
+
+    @staticmethod
+    def get_load_file(file: Optional[str] = None) -> str:
+        model_path = '/home/anton/skola/egen/pytorch/tic-tac-toe_alphaZero/models/'
+        if file:
+            return model_path + file
+
+        model_name = re.compile(".*?AlphaZero(.*?).pth")
+        files = os.listdir(model_path)
+
+        oldest_file_datetime = datetime(2000, 1, 1, 1, 1)
+        oldest_index = 0
+        for i, file in enumerate(files):
+            matches = model_name.match(file)
+            if not matches:
+                continue
+
+            file_datetime = datetime.strptime(matches.group(1), '%Y-%m-%d %H:%M')
+            if file_datetime > oldest_file_datetime:
+                oldest_file_datetime = file_datetime
+                oldest_index = i
+
+        return model_path + files[oldest_index]
 
 
 class Loss(nn.Module):
