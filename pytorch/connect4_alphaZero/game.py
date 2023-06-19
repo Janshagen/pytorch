@@ -1,9 +1,7 @@
-import pygame
 from MCTS import MCTS
 from GameRules import Connect4GameState
 from Connect4Model import AlphaZero
-from interface import (choose_config, draw, game_over, initialize_game,
-                       resolve_event)
+from interface import InterfaceConnect4
 
 
 # Configurations
@@ -14,28 +12,27 @@ EXPLORATION_RATE = 1.4
 
 
 def main() -> None:
-    sims = choose_config(SIMULATIONS)
-    screen, frame = initialize_game(WIDTH, HEIGHT)
+    interface = InterfaceConnect4(HEIGHT, WIDTH)
+    simulations = interface.choose_config(SIMULATIONS)
 
     game_state = Connect4GameState.new_game(starting_player=-1)
     model = AlphaZero().load_model()
-    mcts = MCTS(model, EXPLORATION_RATE, sim_number=sims, verbose=True)
 
-    draw(screen, frame, game_state,  WIDTH, HEIGHT)
+    mcts = MCTS(model, EXPLORATION_RATE, sim_number=simulations, verbose=True)
 
-    result = game(mcts, game_state,  screen, frame)
-    if not game_over(screen, result, WIDTH):
+    interface.draw(game_state)
+    result = game(mcts, game_state, interface)
+    if interface.play_again(result):
         print("###### NEW GAME ######")
         main()
 
 
-def game(mcts: MCTS, game_state: Connect4GameState,
-         screen: pygame.surface.Surface, frame: pygame.Surface) -> int:
+def game(mcts: MCTS, game_state: Connect4GameState, interface: InterfaceConnect4) -> int:
     while True:
         move = None
         # Human
         if game_state.player == -1:
-            move = resolve_event(game_state, WIDTH)
+            move = interface.resolve_event(game_state)
             if move:
                 game_state.make_move(move)
 
@@ -43,11 +40,11 @@ def game(mcts: MCTS, game_state: Connect4GameState,
         elif game_state.player == 1:
             move = mcts.find_move(game_state)
             game_state.make_move(move)
-            resolve_event(game_state, WIDTH)
+            interface.resolve_event(game_state)
 
             print_data(game_state, mcts.model)
 
-        draw(screen, frame, game_state, WIDTH, HEIGHT, move)
+        interface.draw(game_state, move)
 
         if game_state.game_over():
             return game_state.get_status()
