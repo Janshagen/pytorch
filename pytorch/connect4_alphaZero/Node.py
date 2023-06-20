@@ -7,14 +7,14 @@ from GameRules import Connect4GameState
 
 class Node:
     def __init__(self, game_state: Connect4GameState,
-                 move: Optional[int] = None,
+                 move: int = 10,
                  prior: float = 0,
                  parent: Optional['Node'] = None
                  ) -> None:
         # game_state after move has been made
         self.game_state = game_state
 
-        self.move: Optional[int] = move
+        self.move: int = move
         self.parent: Optional['Node'] = parent
 
         self.children: list['Node'] = []
@@ -82,5 +82,4 @@ class Node:
         max_index = visits.index(max_visits)
 
         chosen_child = self.children[max_index]
-        assert chosen_child.move
         return chosen_child.move

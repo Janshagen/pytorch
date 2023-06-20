@@ -29,7 +29,7 @@ class InterfaceConnect4:
                 pygame.draw.circle(frame, self.WHITE,
                                    self.int2coord(i, j), self.circle_radius)
         frame.set_colorkey(self.WHITE)
-        return self.frame
+        return frame
 
     def draw_circle(self, color, i: int, j: int):
         pygame.draw.circle(self.screen, color, self.int2coord(i, j), self.circle_radius)
@@ -38,7 +38,7 @@ class InterfaceConnect4:
         return (self.WIDTH*i + self.WIDTH/2, self.HEIGHT*j + self.HEIGHT/2)
 
     def draw(self, game_state: Connect4GameState, move: Optional[int] = None) -> None:
-        if move:
+        if move is not None:
             self.animate_piece(game_state, move)
 
         self.screen.fill(self.WHITE)

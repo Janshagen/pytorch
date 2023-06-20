@@ -99,22 +99,22 @@ def game(mcts: MCTS, learning_data: TrainingData) -> \
         tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
 
     game_state = Connect4GameState.new_game(random.choice([1, -1]))
-    boards = torch.zeros((4, 3, 3, 3), device=learning_data.device)
+    boards = torch.zeros((2, 3, 6, 7), device=learning_data.device)
     if game_state.player == 1:
-        for i in range(4):
-            boards[i][-1] = torch.ones((3, 3))
+        for i in range(2):
+            boards[i][-1] = torch.ones((6, 7))
 
     all_visits = torch.tensor([], device=learning_data.device)
     while True:
         game_state = perform_game_action(mcts, game_state)
         all_visits = add_number_of_visits(mcts, learning_data, all_visits)
-        boards = add_new_rotated_board_states(learning_data, game_state, boards)
+        boards = add_new_flipped_board_states(learning_data, game_state, boards)
 
         if game_state.game_over():
-            visits = torch.tensor([0.111]*9, dtype=torch.float32,
+            visits = torch.tensor([0.142857143]*7, dtype=torch.float32,
                                   device=learning_data.device)
-            for _ in range(4):
-                all_visits = torch.cat((all_visits, visits.expand((1, -1))), dim=0)
+            for _ in range(2):
+                all_visits = torch.cat((all_visits, visits.unsqueeze(dim=0)), dim=0)
 
             result = torch.tensor([game_state.get_status()], dtype=torch.float32,
                                   device=learning_data.device)
@@ -130,44 +130,52 @@ def perform_game_action(mcts: MCTS,
 
 def add_number_of_visits(mcts: MCTS, learning_data: TrainingData,
                          all_visits: torch.Tensor) -> torch.Tensor:
-    visits = [0]*9
+    visits = [0]*7
     for child in mcts.root.children:
-        assert child.move
         visits[child.move] = child.visits
 
     visits = torch.tensor(visits, dtype=torch.float32, device=learning_data.device)
     visits = nn.functional.normalize(visits, dim=0, p=1)
-    for _ in range(4):
-        all_visits = torch.cat((all_visits, visits.expand((1, -1))), dim=0)
+    for _ in range(2):
+        all_visits = torch.cat((all_visits, visits.unsqueeze(dim=0)), dim=0)
     return all_visits
 
 
-def add_new_rotated_board_states(learning_data: TrainingData,
+def add_new_flipped_board_states(learning_data: TrainingData,
                                  game_state: Connect4GameState,
                                  board_states: torch.Tensor) -> torch.Tensor:
     torch_board = learning_data.model.state2tensor(game_state)
-    for i in range(4):
-        permutation = torch_board.rot90(k=i, dims=(2, 3))
-        board_states = torch.cat((board_states, permutation), dim=0)
+    board_states = torch.cat((board_states, torch_board), dim=0)
+    torch_board = torch.flip(torch_board, dims=(3,))
+    board_states = torch.cat((board_states, torch_board), dim=0)
     return board_states
 
 
 def validate(learning_data: TrainingData) -> None:
-    win1 = np.array([[1, 1, 1],
-                     [-1, 0, -1],
-                     [-1, 0, 0]])
+    win1 = np.array([[0,  1,  1, -1, 0,  1,  1],
+                     [0, -1, -1, -1,  0, -1, -1],
+                     [1,  1,  1, -1,  0,  1,  1],
+                     [-1, -1,  1,  1,  0,  1, -1],
+                     [1,  1, -1, -1,  1, -1, 1],
+                     [-1, -1,  1, -1, -1,  1, -1]])
     game_state1 = Connect4GameState(win1, -1)
     torch_board1 = learning_data.model.state2tensor(game_state1)
 
-    draw = np.array([[1, -1, 1],
-                     [-1, 1, -1],
-                     [-1, 1, -1]])
-    game_state2 = Connect4GameState(draw, 1)
+    draw = np.array([[1,  1, -1,  1, -1, -1, 1],
+                     [-1,  -1,  1,  1, -1,  1, -1],
+                     [1, -1,  1, -1, -1, -1,  1],
+                     [-1,  1,  1, -1,  1, -1,  1],
+                     [-1, -1, -1,  1, -1,  1, -1],
+                     [1,  1,  1, -1,  1, -1, 1]])
+    game_state2 = Connect4GameState(draw, -1)
     torch_board2 = learning_data.model.state2tensor(game_state2)
 
-    win2 = np.array([[-1, 1, 1],
-                     [-1, 1, -1],
-                     [-1, -1, 1]])
+    win2 = np.array([[0,  0,  0,  0,  0,  0,  0],
+                    [0, -1, -1, -1, -1,  1,  0],
+                    [-1,  1,  1,  1, -1, 1, 0],
+                    [1, -1, -1,  1,  1, -1, 0],
+                    [-1,  1,  1, -1, 1, -1,  1],
+                    [1, -1,  1, -1, -1, -1,  1]])
     game_state3 = Connect4GameState(win2, 1)
     torch_board3 = learning_data.model.state2tensor(game_state3)
 

@@ -104,13 +104,15 @@ class AlphaZero(nn.Module):
     first layer represents player 1, second layer represents player -1,
     and third layer is either 1s or 0s."""
 
+    MODEL_PATH = '/home/anton/skola/egen/pytorch/connect4_alphaZero/models/'
+
     def __init__(self) -> None:
         super().__init__()
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-        self.body_channels = 6
-        self.policy_channels = 4
-        self.hidden_nodes = 16
+        self.body_channels = 8
+        self.policy_channels = 6
+        self.hidden_nodes = 32
 
         self.initial_block = nn.Sequential(
             ConvBlock(3, self.body_channels, self.device),
@@ -120,15 +122,14 @@ class AlphaZero(nn.Module):
         self.body = nn.Sequential(
             *[ResidualBlock(self.body_channels,
                             self.body_channels,
-                            self.device) for _ in range(4)]
+                            self.device) for _ in range(6)]
         )
 
         self.policy_head = nn.Sequential(
             ConvBlock(self.body_channels, self.policy_channels, self.device),
             nn.ReLU(),
             nn.Conv2d(self.policy_channels, 1,
-                      kernel_size=3,
-                      padding=1,
+                      kernel_size=(6, 1),
                       device=self.device),
             nn.BatchNorm2d(1, device=self.device),
             torch.nn.Softmax(dim=-1),
@@ -139,7 +140,7 @@ class AlphaZero(nn.Module):
             ConvBlock(self.body_channels, 1, self.device, kernel_size=1, padding=0),
             nn.ReLU(),
             nn.Flatten(),
-            nn.Linear(3*3, self.hidden_nodes, device=self.device),
+            nn.Linear(7*6, self.hidden_nodes, device=self.device),
             nn.ReLU(),
             nn.Linear(self.hidden_nodes, 1, device=self.device),
             nn.Tanh()
@@ -161,7 +162,6 @@ class AlphaZero(nn.Module):
         policies = self.policy_head(body)
 
         if self.policy_is_identically_zero(policies):
-            print("FAN DÅ")
             policies = self.handle_policy_is_zero_case(policies)
 
         policies = self.set_illegal_moves_to_zero(boards, policies)
@@ -169,15 +169,15 @@ class AlphaZero(nn.Module):
         return policies
 
     def policy_is_identically_zero(self, policies: torch.Tensor) -> torch.Tensor:
-        zeros = torch.zeros((1, 9), device=self.device)
+        zeros = torch.zeros((1, 7), device=self.device)
         return torch.any(torch.all(zeros == policies, dim=1))
 
     def handle_policy_is_zero_case(self, policies: torch.Tensor) -> torch.Tensor:
         addition = torch.zeros(policies.shape, device=self.device)
-        zeros = torch.zeros((1, 9), device=self.device)
+        zeros = torch.zeros((1, 7), device=self.device)
         for i, policy in enumerate(policies):
             if torch.all(zeros == policy):
-                addition[i] = torch.ones((1, 9), device=self.device)
+                addition[i] = torch.ones((1, 7), device=self.device)
         policies = policies.clone() + addition
         return policies
 
@@ -185,22 +185,21 @@ class AlphaZero(nn.Module):
                                   policies: torch.Tensor) -> torch.Tensor:
         mask = torch.ones(policies.shape, device=self.device)
         for b, board in enumerate(boards):
-            for i in range(3):
-                for j in range(3):
-                    if self.square_is_occupied(board, i, j):
-                        mask[b][3*i + j] = 0
+            for i in range(7):
+                if self.row_is_filled(board, i):
+                    mask[b][i] = 0
         masked_policy = policies * mask
         return masked_policy
 
-    def square_is_occupied(self, board: torch.Tensor, i: int, j: int) -> bool:
-        return bool(board[0][i][j] or board[1][i][j])
+    def row_is_filled(self, board: torch.Tensor, i: int) -> bool:
+        return bool(board[0][0][i] or board[1][0][i])
 
     def state2tensor(self, game_state: Connect4GameState) -> torch.Tensor:
         np_board = torch.from_numpy(game_state.board).to(self.device)
-        ones = torch.ones((3, 3)).to(self.device)
-        zeros = torch.zeros((3, 3)).to(self.device)
+        ones = torch.ones((6, 7)).to(self.device)
+        zeros = torch.zeros((6, 7)).to(self.device)
 
-        input = torch.empty((1, 3, 3, 3), device=self.device)
+        input = torch.empty((1, 3, 6, 7), device=self.device)
         input[0][0] = (np_board == ones).float()
         input[0][1] = (np_board == -ones).float()
         input[0][2] = ones if game_state.player == 1 else zeros
@@ -215,12 +214,11 @@ class AlphaZero(nn.Module):
 
     @staticmethod
     def get_load_file(file: Optional[str] = None) -> str:
-        model_path = '/home/anton/skola/egen/pytorch/tic-tac-toe_alphaZero/models/'
         if file:
-            return model_path + file
+            return AlphaZero.MODEL_PATH + file
 
         model_name = re.compile(".*?AlphaZero(.*?).pth")
-        files = os.listdir(model_path)
+        files = os.listdir(AlphaZero.MODEL_PATH)
 
         oldest_file_datetime = datetime(2000, 1, 1, 1, 1)
         oldest_index = 0
@@ -234,7 +232,7 @@ class AlphaZero(nn.Module):
                 oldest_file_datetime = file_datetime
                 oldest_index = i
 
-        return model_path + files[oldest_index]
+        return AlphaZero.MODEL_PATH + files[oldest_index]
 
 
 class Loss(nn.Module):

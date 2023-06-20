@@ -27,5 +27,4 @@ class TrainingData:
     @staticmethod
     def get_save_path() -> str:
         current_time = datetime.today().strftime("%Y-%m-%d %H:%M")
-        game_dir = '/home/anton/skola/egen/pytorch/tic-tac-toe_alphaZero'
-        return game_dir + f'/models/AlphaZero{current_time}.pth'
+        return AlphaZero.MODEL_PATH + f'AlphaZero{current_time}.pth'

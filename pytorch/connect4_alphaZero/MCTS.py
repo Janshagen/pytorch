@@ -36,7 +36,6 @@ class MCTS:
 
             if current.visits > 0.5*self.sim_number:
                 self.print_data_if_verbose()
-                assert current.move
                 return current.move
 
             if not current.game_state.game_over():
