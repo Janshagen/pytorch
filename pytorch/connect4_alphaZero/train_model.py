@@ -13,18 +13,19 @@ LOAD_MODEL = False
 SAVE_MODEL = True
 
 LEARNING_RATE = 0.2
-WEIGHT_DECAY = 0.001
+MOMENTUM = 0.9
+WEIGHT_DECAY = 0.01
 
 N_BATCHES = 3_000
 BATCH_SIZE = 5
 
 SIMULATIONS = 30
-UCB1 = 1.4
+EXPLORATION_RATE = 2
 
 
 def main() -> None:
     learning_data = create_learning_data()
-    mcts = MCTS(learning_data.model, UCB1, sim_number=SIMULATIONS)
+    mcts = MCTS(learning_data.model, EXPLORATION_RATE, sim_number=SIMULATIONS)
 
     print("Training Started")
     train(mcts, learning_data)
@@ -38,6 +39,7 @@ def create_learning_data() -> TrainingData:
     model = create_model()
     optimizer = torch.optim.SGD(model.parameters(),
                                 lr=LEARNING_RATE,
+                                momentum=MOMENTUM,
                                 weight_decay=WEIGHT_DECAY)
     loss = Loss()
 
@@ -49,6 +51,7 @@ def create_model() -> AlphaZero:
     model = AlphaZero()
     if LOAD_MODEL:
         model = model.load_model()
+    model.train()
     return model
 
 

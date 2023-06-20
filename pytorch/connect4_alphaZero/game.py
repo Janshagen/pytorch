@@ -5,10 +5,10 @@ from interface import InterfaceConnect4
 
 
 # Configurations
-SIMULATIONS = 300
+SIMULATIONS = 3000
 WIDTH = 120
 HEIGHT = int(WIDTH*0.8)
-EXPLORATION_RATE = 1.4
+EXPLORATION_RATE = 2
 
 
 def main() -> None:
@@ -17,6 +17,7 @@ def main() -> None:
 
     game_state = Connect4GameState.new_game(starting_player=-1)
     model = AlphaZero().load_model()
+    model.eval()
 
     mcts = MCTS(model, EXPLORATION_RATE, sim_number=simulations, verbose=True)
 
@@ -56,7 +57,6 @@ def game(mcts: MCTS, game_state: Connect4GameState, interface: InterfaceConnect4
 def print_data(game_state: Connect4GameState, model: AlphaZero) -> None:
     torch_board = model.state2tensor(game_state)
     print(f"Evaluation after move: {model(torch_board)[0][0][0].item():.4f}")
-    print(f"Policy after move: {model(torch_board)[1][0]}")
     print(" ")
 
 

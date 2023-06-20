@@ -8,62 +8,6 @@ import torch.nn as nn
 from GameRules import Connect4GameState
 
 
-# class DropoutBlock(torch.nn.Module):
-#     def __init__(self, in_units, out_units):
-#         super(DropoutBlock, self).__init__()
-#         self.model = torch.nn.Sequential(
-#             torch.nn.Linear(in_units, out_units),
-#             torch.nn.BatchNorm1d(out_units),
-#             torch.nn.ReLU(),
-#             torch.nn.Dropout(p=args.dropout)
-#         )
-
-#     def forward(self, X):
-#         return self.model(X)
-
-
-# class CRNet(torch.nn.Module):
-#     def __init__(self, H=[200, 100], num_channels=32):
-
-#         # input shape: batch_size x 7 x args.M x args.N
-
-#         super(CRNet, self).__init__()
-#         self.epoch = None
-
-#         self.initial_block = torch.nn.Sequential(
-#             torch.nn.Conv2d(7, num_channels, 3, stride=1, padding=1),
-#             torch.nn.BatchNorm2d(num_channels),
-#             torch.nn.ReLU()
-#         )
-#         self.middle_blocks = torch.nn.Sequential(
-#             *[ResnetBlock(num_channels, num_channels) for _ in range(5)]
-#         )
-#         self.dropout_blocks = torch.nn.Sequential(
-#             DropoutBlock(num_channels * args.M * args.N, H[0]),
-#             DropoutBlock(H[0], H[1])
-#         )
-
-#         self.model = torch.nn.Sequential(
-#             self.initial_block,
-#             self.middle_blocks,
-#             torch.nn.Flatten(start_dim=1),
-#             self.dropout_blocks
-#         )
-
-#         self.value_head = torch.nn.Sequential(
-#             torch.nn.Linear(H[1], H[1]),
-#             torch.nn.ReLU(),
-#             torch.nn.Linear(H[1], 1),
-#             torch.nn.Tanh()
-#         )
-
-#         self.my_policy_head = torch.nn.Sequential(
-#             torch.nn.Linear(H[1], H[1]),
-#             torch.nn.ReLU(),
-#             torch.nn.Linear(H[1], args.M*args.N),
-#             torch.nn.Softmax(dim=-1)
-#         )
-
 class ConvBlock(nn.Module):
     def __init__(self, in_channels, out_channels, device, kernel_size=3, padding=1):
         super().__init__()
@@ -90,7 +34,6 @@ class ResidualBlock(nn.Module):
             nn.ReLU(),
             ConvBlock(in_channels, out_channels, device, kernel_size, padding)
         )
-
         self.relu = nn.ReLU()
 
     def forward(self, X):
@@ -110,9 +53,11 @@ class AlphaZero(nn.Module):
         super().__init__()
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-        self.body_channels = 8
-        self.policy_channels = 6
-        self.hidden_nodes = 32
+        self.body_channels = 5
+        self.policy_channels = 3
+        self.hidden_nodes = 16
+
+        self.dropout_rate = 0.2
 
         self.initial_block = nn.Sequential(
             ConvBlock(3, self.body_channels, self.device),
@@ -122,16 +67,15 @@ class AlphaZero(nn.Module):
         self.body = nn.Sequential(
             *[ResidualBlock(self.body_channels,
                             self.body_channels,
-                            self.device) for _ in range(6)]
+                            self.device) for _ in range(6)],
+            nn.Dropout2d(self.dropout_rate)
         )
 
         self.policy_head = nn.Sequential(
             ConvBlock(self.body_channels, self.policy_channels, self.device),
             nn.ReLU(),
-            nn.Conv2d(self.policy_channels, 1,
-                      kernel_size=(6, 1),
-                      device=self.device),
-            nn.BatchNorm2d(1, device=self.device),
+            nn.Flatten(),
+            nn.Linear(self.policy_channels*7*6, 7, device=self.device),
             torch.nn.Softmax(dim=-1),
             nn.Flatten()
         )
@@ -209,7 +153,6 @@ class AlphaZero(nn.Module):
         model = AlphaZero()
         model.load_state_dict(torch.load(self.get_load_file(file)))
         model.to(self.device)
-        model.eval()
         return model
 
     @staticmethod

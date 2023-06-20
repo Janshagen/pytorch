@@ -12,7 +12,9 @@ FILE_B = "AlphaZero2023-06-18 18:51.pth"
 
 def main():
     model_A = AlphaZero().load_model(FILE_A)
+    model_A.eval()
     model_B = AlphaZero().load_model(FILE_B)
+    model_B.eval()
 
     mcts_A = MCTS(model_A, EXPLORATION_RATE, sim_number=SIMULATIONS)
     mcts_B = MCTS(model_B, EXPLORATION_RATE, sim_number=SIMULATIONS)
