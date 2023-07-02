@@ -11,7 +11,8 @@
         "PUCT",
         "rollouts",
         "unsqueeze",
-        "vinstprocent"
+        "vinstprocent",
+        "Yatzy"
     ],
     "[python]": {
         "editor.defaultFormatter": "ms-python.autopep8"
