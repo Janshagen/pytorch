@@ -1,7 +1,7 @@
 from datetime import datetime
 
 import torch
-from Connect4Model import AlphaZero, Loss
+from YatzyModel import AlphaZero, Loss
 
 
 class TrainingData:

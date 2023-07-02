@@ -2,7 +2,7 @@ import pygame
 import sys
 from typing import Optional
 
-from GameRules import Connect4GameState
+from GameRules import YatzyGameState, Sheet, Die
 
 
 class InterfaceConnect4:
@@ -12,102 +12,129 @@ class InterfaceConnect4:
     PURPLE = (138, 43, 226)
     RED = (220, 20, 60)
 
-    def __init__(self, WIDTH: int, HEIGHT: int):
+    def __init__(self, WIDTH: int):
         self.WIDTH = WIDTH
-        self.HEIGHT = HEIGHT
         self.circle_radius = WIDTH//3
+        self.num_rows = 17
+
+        self.dice_positions = [(7*WIDTH-8, (3*i+2)*WIDTH) for i in range(5)]
 
         pygame.init()
-        self.screen = pygame.display.set_mode((7 * WIDTH, 7 * HEIGHT))
+        self.screen = pygame.display.set_mode((8 * WIDTH, self.num_rows * WIDTH))
         self.frame = self.create_frame()
 
+        self.score_font = pygame.font.Font(None, 32)
+        self.die_font = pygame.font.Font(None, 64)
+
     def create_frame(self):
-        frame = pygame.Surface((7 * self.WIDTH, 6 * self.HEIGHT))
+        frame = pygame.Surface((6 * self.WIDTH + 3, self.num_rows * self.WIDTH))
         frame.fill(self.GREY)
-        for i in range(7):
-            for j in range(6):
-                pygame.draw.circle(frame, self.WHITE,
-                                   self.int2coord(i, j), self.circle_radius)
+        # pygame.draw.rect(frame, self.WHITE, (1*self.WIDTH-3, 0,
+        #                                      6, self.num_rows*self.WIDTH))
+        scale = 1
+        for i in range(6):
+            if i == 3:
+                scale = 0.5
+            for j in range(self.num_rows):
+                pygame.draw.rect(frame, self.WHITE,
+                                 (i*self.WIDTH+3, j*self.WIDTH+3,
+                                  int(scale*2*self.WIDTH)-6, self.WIDTH-6))
         frame.set_colorkey(self.WHITE)
         return frame
 
-    def draw_circle(self, color, i: int, j: int):
-        pygame.draw.circle(self.screen, color, self.int2coord(i, j), self.circle_radius)
-
     def int2coord(self, i: int, j: int) -> tuple[float, float]:
-        return (self.WIDTH*i + self.WIDTH/2, self.HEIGHT*j + self.HEIGHT/2)
+        return (self.WIDTH*i + self.WIDTH/2, self.WIDTH*j + self.WIDTH/2)
 
-    def draw(self, game_state: Connect4GameState, move: Optional[int] = None) -> None:
-        if move is not None:
-            self.animate_piece(game_state, move)
-
+    def draw(self, game_state: YatzyGameState) -> None:
         self.screen.fill(self.WHITE)
-        self.draw_pieces(game_state)
-        self.screen.blit(self.frame, (0, self.HEIGHT))
+        self.write_numbers(game_state)
+        self.write_move_names(game_state)
+        self.screen.blit(self.frame, (0, 0))
         pygame.display.flip()
 
-    def animate_piece(self, game_state: Connect4GameState, move: int) -> None:
-        row = 0
-        for row in range(6):
-            if game_state.board[row][move] != 0:
-                break
+    def write_numbers(self, game_state: YatzyGameState) -> None:
+        for i, die in enumerate(game_state.get_dice()):
+            self.write_die_value(die, i)
+        for sheet in game_state.sheets:
+            self.write_scores(sheet)
 
-        color = self.RED if game_state.player == 1 else self.PURPLE
-        y = 0
-        while y < (row+1)*self.HEIGHT:
-            self.screen.fill(self.WHITE)
-            self.draw_pieces(game_state, (row, move))
-            pygame.draw.circle(self.screen, color, (self.WIDTH*move + self.WIDTH/2,
-                               y+self.HEIGHT/2), self.circle_radius)
-            self.screen.blit(self.frame, (0, self.HEIGHT))
-            y += self.HEIGHT*0.012
-            pygame.display.flip()
+    def write_die_value(self, die: Die, i: int):
+        color = (0, 200, 0) if die.keeping else 255
+        die_text = self.die_font.render(str(die.value), True, color)
+        self.screen.blit(die_text, self.dice_positions[i])
 
-    def draw_pieces(self, game_state: Connect4GameState,
-                    animated_piece: tuple = (None, None)) -> None:
-        self.draw_placed_pieces(game_state, animated_piece)
-        self.draw_moving_piece(game_state)
+    def write_scores(self, sheet: Sheet):
+        for move in sheet.points:
+            if move in sheet.moves_left:
+                continue
+            self.write_score(move, sheet)
 
-    def draw_placed_pieces(self, game_state: Connect4GameState,
-                           animated_piece: tuple = (None, None)) -> None:
-        for i, row in enumerate(game_state.board):
-            for j, spot in enumerate(row):
-                if (i, j) == animated_piece:
-                    continue
-                elif spot == 1:
-                    self.draw_circle(self.PURPLE, j, i+1)
-                elif spot == -1:
-                    self.draw_circle(self.RED, j, i+1)
+    def write_score(self, move: str, sheet: Sheet):
+        string_value = str(sheet[move])
+        value_size = self.score_font.size(string_value)
+        line_number = Sheet.move2index(move)
 
-    def draw_moving_piece(self, game_state: Connect4GameState) -> None:
-        color = self.PURPLE if game_state.player == 1 else self.RED
-        mouse_pos = self.mouse_position()
-        mouse_pos = mouse_pos if mouse_pos is not None else 3
-        pygame.draw.circle(self.screen, color,
-                           self.int2coord(mouse_pos, 0), self.circle_radius)
+        score_text = self.score_font.render(string_value, True, 255)
+        placement = ((sheet.player+4.5) * self.WIDTH-value_size[0]/2,
+                     (line_number+1.5) * self.WIDTH-value_size[1]/2)
 
-    def resolve_event(self, game_state: Connect4GameState) -> Optional[int]:
+        self.screen.blit(score_text, placement)
+
+    def write_move_names(self, game_state: YatzyGameState):
+        sheet = game_state.sheets[0]
+        for i, move in enumerate(sheet.points.keys()):
+            self.write_move_name(move, i)
+
+    def write_move_name(self, move: str, i: int):
+        name_text = self.score_font.render(move, True, 255)
+        name_size = self.score_font.size(move)
+        placement = (0.5 * self.WIDTH, (i+1.5) * self.WIDTH-name_size[1]/2)
+        self.screen.blit(name_text, placement)
+
+    def resolve_event(self, game_state: YatzyGameState) -> Optional[str]:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
 
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+                game_state.throw()
+                return None
+
             if event.type == pygame.MOUSEBUTTONDOWN:
-                return self.place_piece(game_state)
+                return self.resolve_click_action(game_state)
         return None
 
-    def place_piece(self, game_state: Connect4GameState) -> Optional[int]:
-        moves = game_state.available_moves()
-        mouse_pos = self.mouse_position()
+    def resolve_click_action(self, game_state: YatzyGameState) -> Optional[str]:
+        mouse_pos_x = pygame.mouse.get_pos()[0]
+        if mouse_pos_x < 6*self.WIDTH:
+            return self.choose_move(game_state)
+        return self.save_die(game_state)
 
-        if mouse_pos in moves:
-            return mouse_pos
+    def choose_move(self, game_state: YatzyGameState) -> Optional[str]:
+        moves = list(game_state.available_moves())
+        move_positions = [Sheet.move2index(move)+1 for move in moves]
+        mouse_pos = self.mouse_index_position()
+
+        for i, move_position in enumerate(move_positions):
+            if mouse_pos == move_position:
+                return moves[i]
         return None
 
-    def mouse_position(self) -> Optional[int]:
-        mPos = pygame.mouse.get_pos()[0]
-        for i in range(7):
-            if self.WIDTH * i < mPos <= self.WIDTH * (i+1):
+    def save_die(self, game_state: YatzyGameState) -> None:
+        for i, die in enumerate(game_state.get_dice()):
+            if self.close_enough(i):
+                die.flip_state()
+
+    def close_enough(self, i: int):
+        mouse_pos_y = pygame.mouse.get_pos()[1]
+        return abs(mouse_pos_y - self.dice_positions[i][1]) < self.WIDTH
+
+    def mouse_index_position(self) -> Optional[int]:
+        mouse_pos_y = pygame.mouse.get_pos()[1]
+
+        for i in range(self.num_rows):
+            if self.WIDTH * i < mouse_pos_y <= self.WIDTH * (i+1):
                 return i
         return None
 

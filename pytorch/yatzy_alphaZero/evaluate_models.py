@@ -1,6 +1,6 @@
 import random
-from Connect4Model import AlphaZero
-from GameRules import Connect4GameState
+from YatzyModel import AlphaZero
+from GameRules import YatzyGameState
 from MCTS import MCTS
 
 EXPLORATION_RATE = 1.4
@@ -29,13 +29,13 @@ def main():
 
 
 def game(mcts_A: MCTS, mcts_B: MCTS) -> int:
-    game_state = Connect4GameState.new_game(random.choice([1, -1]))
-    move = 0
+    game_state = YatzyGameState.new_game(random.choice([1, -1]))
+    move = ""
     while True:
-        if game_state.player == -1:
+        if game_state.current_player == -1:
             move = mcts_A.find_move(game_state)
 
-        elif game_state.player == 1:
+        elif game_state.current_player == 1:
             move = mcts_B.find_move(game_state)
 
         game_state.make_move(move)

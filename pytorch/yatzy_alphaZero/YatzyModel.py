@@ -5,7 +5,7 @@ from typing import Optional
 
 import torch
 import torch.nn as nn
-from GameRules import Connect4GameState
+from GameRules import YatzyGameState
 
 
 class ConvBlock(nn.Module):
@@ -138,15 +138,15 @@ class AlphaZero(nn.Module):
     def row_is_filled(self, board: torch.Tensor, i: int) -> bool:
         return bool(board[0][0][i] or board[1][0][i])
 
-    def state2tensor(self, game_state: Connect4GameState) -> torch.Tensor:
-        np_board = torch.from_numpy(game_state.board).to(self.device)
+    def state2tensor(self, game_state: YatzyGameState) -> torch.Tensor:
+        np_board = torch.from_numpy(game_state.sheets).to(self.device)
         ones = torch.ones((6, 7)).to(self.device)
         zeros = torch.zeros((6, 7)).to(self.device)
 
         input = torch.empty((1, 3, 6, 7), device=self.device)
         input[0][0] = (np_board == ones).float()
         input[0][1] = (np_board == -ones).float()
-        input[0][2] = ones if game_state.player == 1 else zeros
+        input[0][2] = ones if game_state.current_player == 1 else zeros
         return input
 
     def load_model(self, file: Optional[str] = None):

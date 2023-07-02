@@ -3,9 +3,9 @@ import time
 
 import numpy as np
 import torch
-from GameRules import Connect4GameState
+from GameRules import YatzyGameState
 from Node import Node
-from Connect4Model import AlphaZero
+from YatzyModel import AlphaZero
 
 
 class MCTS:
@@ -22,7 +22,7 @@ class MCTS:
 
         self.verbose = verbose
 
-    def find_move(self, game_state: Connect4GameState) -> int:
+    def find_move(self, game_state: YatzyGameState) -> str:
         self.root = Node(game_state)
 
         start_time = time.process_time()
@@ -72,7 +72,7 @@ class MCTS:
         return time.process_time() - start_time > self.sim_time
 
     def print_data(self) -> None:
-        visits, val, p = self.root.visits, self.root.value, self.root.game_state.player
+        visits, val, p = self.root.visits, self.root.value, self.root.game_state.current_player
         print(
             f'root; player: {p}, rollouts: {visits}, value: {round(val, 2)}',
             f'vinstprocent: {round((visits+val)*50/visits, 2)}%')
@@ -92,7 +92,7 @@ class MCTS:
         state = current.game_state.copy()
         while True:
             moves = state.available_moves()
-            state.make_move(random.choice(moves))
+            state.make_move(random.sample(moves, 1)[0])
 
             if state.game_over():
                 return state.get_status()

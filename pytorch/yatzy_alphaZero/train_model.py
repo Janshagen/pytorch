@@ -4,9 +4,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 from TrainingData import TrainingData
-from GameRules import Connect4GameState
+from GameRules import YatzyGameState
 from MCTS import MCTS
-from Connect4Model import AlphaZero, Loss
+from yatzy_alphaZero.YatzyModel import AlphaZero, Loss
 
 # Constants
 LOAD_MODEL = False
@@ -101,9 +101,9 @@ def print_info(batch: int, evaluations: torch.Tensor,
 def game(mcts: MCTS, learning_data: TrainingData) -> \
         tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
 
-    game_state = Connect4GameState.new_game(random.choice([1, -1]))
+    game_state = YatzyGameState.new_game(random.choice([1, -1]))
     boards = torch.zeros((2, 3, 6, 7), device=learning_data.device)
-    if game_state.player == 1:
+    if game_state.current_player == 1:
         for i in range(2):
             boards[i][-1] = torch.ones((6, 7))
 
@@ -125,7 +125,7 @@ def game(mcts: MCTS, learning_data: TrainingData) -> \
 
 
 def perform_game_action(mcts: MCTS,
-                        game_state: Connect4GameState) -> Connect4GameState:
+                        game_state: YatzyGameState) -> YatzyGameState:
     move = mcts.find_move(game_state)
     game_state.make_move(move)
     return game_state
@@ -145,7 +145,7 @@ def add_number_of_visits(mcts: MCTS, learning_data: TrainingData,
 
 
 def add_new_flipped_board_states(learning_data: TrainingData,
-                                 game_state: Connect4GameState,
+                                 game_state: YatzyGameState,
                                  board_states: torch.Tensor) -> torch.Tensor:
     torch_board = learning_data.model.state2tensor(game_state)
     board_states = torch.cat((board_states, torch_board), dim=0)
@@ -161,7 +161,7 @@ def validate(learning_data: TrainingData) -> None:
                      [-1, -1,  1,  1,  0,  1, -1],
                      [1,  1, -1, -1,  1, -1, 1],
                      [-1, -1,  1, -1, -1,  1, -1]])
-    game_state1 = Connect4GameState(win1, -1)
+    game_state1 = YatzyGameState(win1, -1)
     torch_board1 = learning_data.model.state2tensor(game_state1)
 
     draw = np.array([[1,  1, -1,  1, -1, -1, 1],
@@ -170,7 +170,7 @@ def validate(learning_data: TrainingData) -> None:
                      [-1,  1,  1, -1,  1, -1,  1],
                      [-1, -1, -1,  1, -1,  1, -1],
                      [1,  1,  1, -1,  1, -1, 1]])
-    game_state2 = Connect4GameState(draw, -1)
+    game_state2 = YatzyGameState(draw, -1)
     torch_board2 = learning_data.model.state2tensor(game_state2)
 
     win2 = np.array([[0,  0,  0,  0,  0,  0,  0],
@@ -179,7 +179,7 @@ def validate(learning_data: TrainingData) -> None:
                     [1, -1, -1,  1,  1, -1, 0],
                     [-1,  1,  1, -1, 1, -1,  1],
                     [1, -1,  1, -1, -1, -1,  1]])
-    game_state3 = Connect4GameState(win2, 1)
+    game_state3 = YatzyGameState(win2, 1)
     torch_board3 = learning_data.model.state2tensor(game_state3)
 
     with torch.no_grad():

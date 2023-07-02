@@ -2,19 +2,19 @@ from typing import Optional
 
 import numpy as np
 import torch
-from GameRules import Connect4GameState
+from GameRules import YatzyGameState, Sheet
 
 
 class Node:
-    def __init__(self, game_state: Connect4GameState,
-                 move: int = 10,
+    def __init__(self, game_state: YatzyGameState,
+                 move: str = "",
                  prior: float = 0,
                  parent: Optional['Node'] = None
                  ) -> None:
         # game_state after move has been made
         self.game_state = game_state
 
-        self.move: int = move
+        self.move: str = move
         self.parent: Optional['Node'] = parent
 
         self.children: list['Node'] = []
@@ -31,7 +31,7 @@ class Node:
         for move in moves:
             state = self.game_state.copy()
             state.make_move(move)
-            prior = policy[move].item()
+            prior = policy[Sheet.move2index(move)].item()
 
             child = Node(state, move, prior, parent=self)
 
@@ -73,10 +73,10 @@ class Node:
 
     def my_player(self) -> int:
         if self.parent is None:
-            return self.game_state.player
-        return -self.game_state.player
+            return self.game_state.current_player
+        return -self.game_state.current_player
 
-    def choose_move(self) -> int:
+    def choose_move(self) -> str:
         visits = [child.visits for child in self.children]
         max_visits = max(visits)
         max_index = visits.index(max_visits)
