@@ -9,7 +9,7 @@ from MCTS import MCTS
 from TicTacToeModel import AlphaZero, Loss
 
 # Constants
-LOAD_MODEL = False
+LOAD_MODEL = True
 SAVE_MODEL = True
 
 LEARNING_RATE = 0.2
@@ -18,8 +18,8 @@ WEIGHT_DECAY = 0.001
 N_BATCHES = 3_000
 BATCH_SIZE = 5
 
-SIMULATIONS = 30
-UCB1 = 1.4
+SIMULATIONS = 50
+UCB1 = 2
 
 
 def main() -> None:
