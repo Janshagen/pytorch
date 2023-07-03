@@ -278,39 +278,3 @@ class YatzyGameState:
 
     def get_dice(self):
         return self.dice.dice
-
-    # def available_moves(self, dice: Dice) -> set[str]:
-    #     moves = set(["skip"])
-    #     count_of_die_values = dice.count_of_die_values()
-    #     for move in self.moves_left:
-    #         if move == "one pair" and max(count_of_die_values) <= 1:
-    #             continue
-    #         elif move == "three of a kind" and max(count_of_die_values) <= 2:
-    #             continue
-    #         elif move == "four of a kind" and max(count_of_die_values) <= 3:
-    #             continue
-    #         elif move == "yatzy" and max(count_of_die_values) <= 4:
-    #             continue
-    #         elif move == "two pair" and not \
-    #             (count_of_die_values.count(2) == 2) or \
-    #                 max(count_of_die_values) == 3 and min(count_of_die_values) == 2:
-    #             continue
-    #         elif move == "full house" and not (max(count_of_die_values) == 3 and
-    #                                            min(count_of_die_values) == 2):
-    #             continue
-    #         elif move == "small straight" and not \
-    #                 (count_of_die_values[0] and
-    #                  count_of_die_values[1] and
-    #                  count_of_die_values[2] and
-    #                  count_of_die_values[3] and
-    #                  count_of_die_values[4]):
-    #             continue
-    #         elif move == "big straight" and not \
-    #                 (count_of_die_values[1] and
-    #                  count_of_die_values[2] and
-    #                  count_of_die_values[3] and
-    #                  count_of_die_values[4] and
-    #                  count_of_die_values[5]):
-    #             continue
-    #         moves.add(move)
-    #     return moves

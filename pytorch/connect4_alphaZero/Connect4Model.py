@@ -53,6 +53,11 @@ class AlphaZero(nn.Module):
         super().__init__()
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+        alpha = 1
+        self.dirichlet = torch.distributions.dirichlet.Dirichlet(
+            torch.ones((1, 7))*alpha
+        )
+
         self.body_channels = 5
         self.policy_channels = 3
         self.hidden_nodes = 16
@@ -98,6 +103,7 @@ class AlphaZero(nn.Module):
         body = self.body(body)
 
         policies = self.calculate_policies(boards, body)
+        policies = self.add_noise(policies)
         evaluation = self.value_head(body)
         return evaluation, policies
 
@@ -137,6 +143,11 @@ class AlphaZero(nn.Module):
 
     def row_is_filled(self, board: torch.Tensor, i: int) -> bool:
         return bool(board[0][0][i] or board[1][0][i])
+
+    def add_noise(self, policies: torch.Tensor):
+        sample_size = torch.Size((policies.shape[0],))
+        noise = self.dirichlet.sample(sample_size)[0].to(self.device)
+        return 0.75*policies + 0.25*noise
 
     def state2tensor(self, game_state: Connect4GameState) -> torch.Tensor:
         np_board = torch.from_numpy(game_state.board).to(self.device)

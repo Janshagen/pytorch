@@ -12,12 +12,13 @@ class TrainingData:
 
         self.model = model
         self.loss = loss
-        self.optimizer = optimizer
 
-        self.device: torch.device = model.device
+        self.optimizer = optimizer
         self.scheduler = torch.optim.lr_scheduler.MultiStepLR(
             self.optimizer, milestones=[2*N_BATCHES//10, 8*N_BATCHES//10], gamma=0.1
         )
+
+        self.device: torch.device = model.device
 
     def save_model(self):
         path = self.get_save_path()
