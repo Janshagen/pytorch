@@ -43,7 +43,7 @@ class ResidualBlock(nn.Module):
 
 
 class AlphaZero(nn.Module):
-    """Input to forward is a (3, 3, 4) tensor where
+    """Input to forward is a concatenation of n (4, 6, 7) tensors where
     first layer represents player 1, second layer represents player -1,
     and third and fourth layers are either 1s or 0s depending on current player."""
 
@@ -60,7 +60,7 @@ class AlphaZero(nn.Module):
 
         self.body_channels = 5
         self.policy_channels = 3
-        self.hidden_nodes = 16
+        self.hidden_nodes = 32
 
         self.dropout_rate = 0.2
 

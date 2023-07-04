@@ -102,23 +102,26 @@ def game(mcts: MCTS, learning_data: TrainingData) -> \
         tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
 
     game_state = Connect4GameState.new_game(random.choice([1, -1]))
-    boards = new_boards(game_state, learning_data)
+    all_boards = new_boards(game_state, learning_data)
 
     all_visits = torch.tensor([], device=learning_data.device)
     while True:
         game_state = find_and_make_move(mcts, game_state)
-        all_visits = add_number_of_visits(mcts, learning_data, all_visits)
-        boards = add_new_flipped_board_states(learning_data, game_state, boards)
+        all_boards = add_new_flipped_boards(game_state, learning_data, all_boards)
+        all_visits = add_new_flipped_visits(mcts, learning_data, all_visits)
 
         if game_state.game_over():
             visits = torch.tensor([0.142857143]*7, dtype=torch.float32,
                                   device=learning_data.device)
-            for _ in range(2):
-                all_visits = torch.cat((all_visits, visits.unsqueeze(dim=0)), dim=0)
+
+            all_visits = add_flipped_states(all_visits,
+                                            visits.unsqueeze(dim=0),
+                                            flip_dims=(1,)
+                                            )
 
             result = torch.tensor([game_state.get_status()], dtype=torch.float32,
                                   device=learning_data.device)
-            return boards, result, all_visits
+            return all_boards, result, all_visits
 
 
 def new_boards(game_state: Connect4GameState,
@@ -139,31 +142,37 @@ def find_and_make_move(mcts: MCTS,
     return game_state
 
 
-def add_number_of_visits(mcts: MCTS, learning_data: TrainingData,
-                         all_visits: torch.Tensor) -> torch.Tensor:
+def add_new_flipped_boards(
+        game_state: Connect4GameState,
+        learning_data: TrainingData,
+        all_boards: torch.Tensor) -> torch.Tensor:
+    torch_board = learning_data.model.state2tensor(game_state)
+    all_boards = add_flipped_states(all_boards, torch_board, flip_dims=(3,))
+    return all_boards
+
+
+def add_new_flipped_visits(mcts: MCTS, learning_data: TrainingData,
+                           all_visits: torch.Tensor) -> torch.Tensor:
     visits = [0]*7
     for child in mcts.root.children:
         visits[child.move] = child.visits
 
     visits = torch.tensor(visits, dtype=torch.float32, device=learning_data.device)
     visits = nn.functional.normalize(visits, dim=0, p=1)
-
     visits = torch.unsqueeze(visits, dim=0)
-    all_visits = torch.cat((all_visits, visits), dim=0)
-    visits = torch.flip(visits, dims=(1,))
-    all_visits = torch.cat((all_visits, visits), dim=0)
 
+    all_visits = add_flipped_states(all_visits, visits, flip_dims=(1,))
     return all_visits
 
 
-def add_new_flipped_board_states(learning_data: TrainingData,
-                                 game_state: Connect4GameState,
-                                 board_states: torch.Tensor) -> torch.Tensor:
-    torch_board = learning_data.model.state2tensor(game_state)
-    board_states = torch.cat((board_states, torch_board), dim=0)
-    torch_board = torch.flip(torch_board, dims=(3,))
-    board_states = torch.cat((board_states, torch_board), dim=0)
-    return board_states
+def add_flipped_states(
+        stack: torch.Tensor,
+        new_state: torch.Tensor,
+        flip_dims: tuple) -> torch.Tensor:
+    stack = torch.cat((stack, new_state), dim=0)
+    new_state = torch.flip(new_state, dims=flip_dims)
+    stack = torch.cat((stack, new_state), dim=0)
+    return stack
 
 
 def validate(learning_data: TrainingData) -> None:
