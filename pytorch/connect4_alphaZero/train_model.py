@@ -147,9 +147,12 @@ def add_number_of_visits(mcts: MCTS, learning_data: TrainingData,
 
     visits = torch.tensor(visits, dtype=torch.float32, device=learning_data.device)
     visits = nn.functional.normalize(visits, dim=0, p=1)
-    # DENNA MÅSTE FLIPPAS!!!!!
-    for _ in range(2):
-        all_visits = torch.cat((all_visits, visits.unsqueeze(dim=0)), dim=0)
+
+    visits = torch.unsqueeze(visits, dim=0)
+    all_visits = torch.cat((all_visits, visits), dim=0)
+    visits = torch.flip(visits, dims=(1,))
+    all_visits = torch.cat((all_visits, visits), dim=0)
+
     return all_visits
 
 
