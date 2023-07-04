@@ -60,7 +60,7 @@ class Sheet:
         "three of a kind": 8, "four of a kind": 9,
         "small straight": 10, "big straight": 11,
         "full house": 12, "chance": 13,
-        "yatzy": 14, "sum": 15, "skip": 16
+        "yatzy": 14, "sum": 15
     }
 
     UPPER_MOVES = list(["ones", "twos",

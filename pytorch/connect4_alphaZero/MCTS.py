@@ -31,8 +31,7 @@ class MCTS:
                 self.print_data_if_verbose()
                 return self.root.choose_move()
 
-            current = self.root
-            current = self.traverse_tree(current)
+            current = self.traverse_tree()
 
             if current.visits > 0.5*self.sim_number:
                 self.print_data_if_verbose()
@@ -46,7 +45,8 @@ class MCTS:
         self.print_data_if_verbose()
         return self.root.choose_move()
 
-    def traverse_tree(self, current: Node) -> Node:
+    def traverse_tree(self) -> Node:
+        current = self.root
         current = current.select_child(self.exploration_rate)
         if current.visits > 0.5*self.sim_number:
             return current
@@ -60,6 +60,9 @@ class MCTS:
         with torch.no_grad():
             evaluation, policy = self.model(torch_board)
         current.evaluation = evaluation.item()
+
+        if current.parent is None:
+            policy = self.model.add_noise(policy)
 
         current.make_children(policy[0])
         return current

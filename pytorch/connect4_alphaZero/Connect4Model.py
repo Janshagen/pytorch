@@ -103,7 +103,6 @@ class AlphaZero(nn.Module):
         body = self.body(body)
 
         policies = self.calculate_policies(boards, body)
-        policies = self.add_noise(policies)
         evaluation = self.value_head(body)
         return evaluation, policies
 
@@ -136,18 +135,18 @@ class AlphaZero(nn.Module):
         mask = torch.ones(policies.shape, device=self.device)
         for b, board in enumerate(boards):
             for i in range(7):
-                if self.row_is_filled(board, i):
+                if self.column_is_filled(board, i):
                     mask[b][i] = 0
         masked_policy = policies * mask
         return masked_policy
 
-    def row_is_filled(self, board: torch.Tensor, i: int) -> bool:
+    def column_is_filled(self, board: torch.Tensor, i: int) -> bool:
         return bool(board[0][0][i] or board[1][0][i])
 
-    def add_noise(self, policies: torch.Tensor):
-        sample_size = torch.Size((policies.shape[0],))
+    def add_noise(self, policy: torch.Tensor):
+        sample_size = torch.Size((policy.shape[0],))
         noise = self.dirichlet.sample(sample_size)[0].to(self.device)
-        return 0.75*policies + 0.25*noise
+        return 0.75*policy + 0.25*noise
 
     def state2tensor(self, game_state: Connect4GameState) -> torch.Tensor:
         np_board = torch.from_numpy(game_state.board).to(self.device)

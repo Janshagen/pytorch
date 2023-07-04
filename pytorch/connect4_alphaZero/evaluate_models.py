@@ -3,11 +3,11 @@ from Connect4Model import AlphaZero
 from GameRules import Connect4GameState
 from MCTS import MCTS
 
-EXPLORATION_RATE = 1.4
+EXPLORATION_RATE = 3
 SIMULATIONS = 100
 
-FILE_A = "AlphaZero2023-06-18 18:51.pth"
-FILE_B = "AlphaZero2023-06-18 18:51.pth"
+FILE_A = "AlphaZero2023-07-03 18:55.pth"
+FILE_B = "AlphaZero2023-06-22 03:47.pth"
 
 
 def main():

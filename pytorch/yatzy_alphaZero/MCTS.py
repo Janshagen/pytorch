@@ -31,8 +31,7 @@ class MCTS:
                 self.print_data_if_verbose()
                 return self.root.choose_move()
 
-            current = self.root
-            current = self.traverse_tree(current)
+            current = self.traverse_tree()
 
             if current.visits > 0.5*self.sim_number:
                 self.print_data_if_verbose()
@@ -46,7 +45,8 @@ class MCTS:
         self.print_data_if_verbose()
         return self.root.choose_move()
 
-    def traverse_tree(self, current: Node) -> Node:
+    def traverse_tree(self) -> Node:
+        current = self.root
         current = current.select_child(self.exploration_rate)
         if current.visits > 0.5*self.sim_number:
             return current
@@ -72,7 +72,8 @@ class MCTS:
         return time.process_time() - start_time > self.sim_time
 
     def print_data(self) -> None:
-        visits, val, p = self.root.visits, self.root.value, self.root.game_state.current_player
+        visits, val, p = \
+            self.root.visits, self.root.value, self.root.game_state.current_player
         print(
             f'root; player: {p}, rollouts: {visits}, value: {round(val, 2)}',
             f'vinstprocent: {round((visits+val)*50/visits, 2)}%')
