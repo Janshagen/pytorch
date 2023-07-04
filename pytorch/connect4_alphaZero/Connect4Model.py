@@ -43,9 +43,9 @@ class ResidualBlock(nn.Module):
 
 
 class AlphaZero(nn.Module):
-    """Input to forward is a (3, 3, 3) tensor where
+    """Input to forward is a (3, 3, 4) tensor where
     first layer represents player 1, second layer represents player -1,
-    and third layer is either 1s or 0s."""
+    and third and fourth layers are either 1s or 0s depending on current player."""
 
     MODEL_PATH = '/home/anton/skola/egen/pytorch/connect4_alphaZero/models/'
 
@@ -65,7 +65,7 @@ class AlphaZero(nn.Module):
         self.dropout_rate = 0.2
 
         self.initial_block = nn.Sequential(
-            ConvBlock(3, self.body_channels, self.device),
+            ConvBlock(4, self.body_channels, self.device),
             nn.ReLU()
         )
 
@@ -96,9 +96,6 @@ class AlphaZero(nn.Module):
         )
 
     def forward(self, boards: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        if len(boards.shape) == 3:
-            boards = torch.unsqueeze(boards, dim=0)
-
         body = self.initial_block(boards)
         body = self.body(body)
 
@@ -153,10 +150,11 @@ class AlphaZero(nn.Module):
         ones = torch.ones((6, 7)).to(self.device)
         zeros = torch.zeros((6, 7)).to(self.device)
 
-        input = torch.empty((1, 3, 6, 7), device=self.device)
+        input = torch.empty((1, 4, 6, 7), device=self.device)
         input[0][0] = (np_board == ones).float()
         input[0][1] = (np_board == -ones).float()
         input[0][2] = ones if game_state.player == 1 else zeros
+        input[0][3] = ones if game_state.player == -1 else zeros
         return input
 
     def load_model(self, file: Optional[str] = None):

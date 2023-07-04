@@ -102,14 +102,11 @@ def game(mcts: MCTS, learning_data: TrainingData) -> \
         tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
 
     game_state = Connect4GameState.new_game(random.choice([1, -1]))
-    boards = torch.zeros((2, 3, 6, 7), device=learning_data.device)
-    if game_state.player == 1:
-        for i in range(2):
-            boards[i][-1] = torch.ones((6, 7))
+    boards = new_boards(game_state, learning_data)
 
     all_visits = torch.tensor([], device=learning_data.device)
     while True:
-        game_state = perform_game_action(mcts, game_state)
+        game_state = find_and_make_move(mcts, game_state)
         all_visits = add_number_of_visits(mcts, learning_data, all_visits)
         boards = add_new_flipped_board_states(learning_data, game_state, boards)
 
@@ -124,8 +121,19 @@ def game(mcts: MCTS, learning_data: TrainingData) -> \
             return boards, result, all_visits
 
 
-def perform_game_action(mcts: MCTS,
-                        game_state: Connect4GameState) -> Connect4GameState:
+def new_boards(game_state: Connect4GameState,
+               learning_data: TrainingData) -> torch.Tensor:
+    boards = torch.zeros((2, 4, 6, 7), device=learning_data.device)
+    for i in range(2):
+        if game_state.player == 1:
+            boards[i][2] = torch.ones((6, 7))
+        elif game_state.player == -1:
+            boards[i][3] = torch.ones((6, 7))
+    return boards
+
+
+def find_and_make_move(mcts: MCTS,
+                       game_state: Connect4GameState) -> Connect4GameState:
     move = mcts.find_move(game_state)
     game_state.make_move(move)
     return game_state
@@ -139,6 +147,7 @@ def add_number_of_visits(mcts: MCTS, learning_data: TrainingData,
 
     visits = torch.tensor(visits, dtype=torch.float32, device=learning_data.device)
     visits = nn.functional.normalize(visits, dim=0, p=1)
+    # DENNA MÅSTE FLIPPAS!!!!!
     for _ in range(2):
         all_visits = torch.cat((all_visits, visits.unsqueeze(dim=0)), dim=0)
     return all_visits
