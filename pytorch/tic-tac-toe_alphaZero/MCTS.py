@@ -60,8 +60,10 @@ class MCTS:
         torch_board = self.model.state2tensor(current.game_state)
         with torch.no_grad():
             evaluation, policy = self.model(torch_board)
-        current.evaluation = evaluation.item()
+            if current.parent is None:
+                policy = self.model.add_noise(policy)
 
+        current.evaluation = evaluation.item()
         current.make_children(policy[0])
         return current
 

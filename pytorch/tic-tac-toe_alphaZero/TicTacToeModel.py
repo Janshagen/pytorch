@@ -8,62 +8,6 @@ import torch.nn as nn
 from GameRules import TicTacToeGameState
 
 
-# class DropoutBlock(torch.nn.Module):
-#     def __init__(self, in_units, out_units):
-#         super(DropoutBlock, self).__init__()
-#         self.model = torch.nn.Sequential(
-#             torch.nn.Linear(in_units, out_units),
-#             torch.nn.BatchNorm1d(out_units),
-#             torch.nn.ReLU(),
-#             torch.nn.Dropout(p=args.dropout)
-#         )
-
-#     def forward(self, X):
-#         return self.model(X)
-
-
-# class CRNet(torch.nn.Module):
-#     def __init__(self, H=[200, 100], num_channels=32):
-
-#         # input shape: batch_size x 7 x args.M x args.N
-
-#         super(CRNet, self).__init__()
-#         self.epoch = None
-
-#         self.initial_block = torch.nn.Sequential(
-#             torch.nn.Conv2d(7, num_channels, 3, stride=1, padding=1),
-#             torch.nn.BatchNorm2d(num_channels),
-#             torch.nn.ReLU()
-#         )
-#         self.middle_blocks = torch.nn.Sequential(
-#             *[ResnetBlock(num_channels, num_channels) for _ in range(5)]
-#         )
-#         self.dropout_blocks = torch.nn.Sequential(
-#             DropoutBlock(num_channels * args.M * args.N, H[0]),
-#             DropoutBlock(H[0], H[1])
-#         )
-
-#         self.model = torch.nn.Sequential(
-#             self.initial_block,
-#             self.middle_blocks,
-#             torch.nn.Flatten(start_dim=1),
-#             self.dropout_blocks
-#         )
-
-#         self.value_head = torch.nn.Sequential(
-#             torch.nn.Linear(H[1], H[1]),
-#             torch.nn.ReLU(),
-#             torch.nn.Linear(H[1], 1),
-#             torch.nn.Tanh()
-#         )
-
-#         self.my_policy_head = torch.nn.Sequential(
-#             torch.nn.Linear(H[1], H[1]),
-#             torch.nn.ReLU(),
-#             torch.nn.Linear(H[1], args.M*args.N),
-#             torch.nn.Softmax(dim=-1)
-#         )
-
 class ConvBlock(nn.Module):
     def __init__(self, in_channels, out_channels, device, kernel_size=3, padding=1):
         super().__init__()
@@ -100,27 +44,37 @@ class ResidualBlock(nn.Module):
 
 
 class AlphaZero(nn.Module):
-    """Input to forward is a (3, 3, 3) tensor where
+    """Input to forward is a (4, 3, 3) tensor where
     first layer represents player 1, second layer represents player -1,
-    and third layer is either 1s or 0s."""
+    and third and fourth layers are either 1s or 0s depending on current player."""
+
+    MODEL_PATH = '/home/anton/skola/egen/pytorch/tic-tac-toe_alphaZero/models/'
 
     def __init__(self) -> None:
         super().__init__()
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-        self.body_channels = 6
+        alpha = 1
+        self.dirichlet = torch.distributions.dirichlet.Dirichlet(
+            torch.ones((1, 9))*alpha
+        )
+
+        self.body_channels = 5
         self.policy_channels = 4
-        self.hidden_nodes = 16
+        self.hidden_nodes = 32
+
+        self.dropout_rate = 0.2
 
         self.initial_block = nn.Sequential(
-            ConvBlock(3, self.body_channels, self.device),
+            ConvBlock(4, self.body_channels, self.device),
             nn.ReLU()
         )
 
         self.body = nn.Sequential(
             *[ResidualBlock(self.body_channels,
                             self.body_channels,
-                            self.device) for _ in range(4)]
+                            self.device) for _ in range(6)],
+            nn.Dropout2d(self.dropout_rate)
         )
 
         self.policy_head = nn.Sequential(
@@ -146,9 +100,6 @@ class AlphaZero(nn.Module):
         )
 
     def forward(self, boards: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        if len(boards.shape) == 3:
-            boards = torch.unsqueeze(boards, dim=0)
-
         body = self.initial_block(boards)
         body = self.body(body)
 
@@ -195,15 +146,21 @@ class AlphaZero(nn.Module):
     def square_is_occupied(self, board: torch.Tensor, i: int, j: int) -> bool:
         return bool(board[0][i][j] or board[1][i][j])
 
+    def add_noise(self, policy: torch.Tensor):
+        sample_size = torch.Size((policy.shape[0],))
+        noise = self.dirichlet.sample(sample_size)[0].to(self.device)
+        return 0.75*policy + 0.25*noise
+
     def state2tensor(self, game_state: TicTacToeGameState) -> torch.Tensor:
         np_board = torch.from_numpy(game_state.board).to(self.device)
         ones = torch.ones((3, 3)).to(self.device)
         zeros = torch.zeros((3, 3)).to(self.device)
 
-        input = torch.empty((1, 3, 3, 3), device=self.device)
+        input = torch.empty((1, 4, 3, 3), device=self.device)
         input[0][0] = (np_board == ones).float()
         input[0][1] = (np_board == -ones).float()
         input[0][2] = ones if game_state.player == 1 else zeros
+        input[0][3] = ones if game_state.player == -1 else zeros
         return input
 
     def load_model(self, file: Optional[str] = None):
@@ -215,12 +172,11 @@ class AlphaZero(nn.Module):
 
     @staticmethod
     def get_load_file(file: Optional[str] = None) -> str:
-        model_path = '/home/anton/skola/egen/pytorch/tic-tac-toe_alphaZero/models/'
         if file:
-            return model_path + file
+            return AlphaZero.MODEL_PATH + file
 
         model_name = re.compile(".*?AlphaZero(.*?).pth")
-        files = os.listdir(model_path)
+        files = os.listdir(AlphaZero.MODEL_PATH)
 
         oldest_file_datetime = datetime(2000, 1, 1, 1, 1)
         oldest_index = 0
@@ -234,7 +190,7 @@ class AlphaZero(nn.Module):
                 oldest_file_datetime = file_datetime
                 oldest_index = i
 
-        return model_path + files[oldest_index]
+        return AlphaZero.MODEL_PATH + files[oldest_index]
 
 
 class Loss(nn.Module):

@@ -1,4 +1,5 @@
 import random
+from typing import Optional
 
 import numpy as np
 import torch
@@ -24,8 +25,8 @@ EXPLORATION_RATE = 3
 
 
 class Trainer:
-    def __init__(self):
-        self.learning_data = self.create_learning_data()
+    def __init__(self, load_file: Optional[str] = None):
+        self.learning_data = self.create_learning_data(load_file)
         self.mcts = MCTS(self.learning_data.model,
                          EXPLORATION_RATE,
                          sim_number=SIMULATIONS
@@ -39,8 +40,8 @@ class Trainer:
         if SAVE_MODEL:
             self.learning_data.save_model()
 
-    def create_learning_data(self) -> TrainingData:
-        model = self.create_model()
+    def create_learning_data(self, load_file: Optional[str] = None) -> TrainingData:
+        model = self.create_model(load_file)
         optimizer = torch.optim.SGD(model.parameters(),
                                     lr=LEARNING_RATE,
                                     momentum=MOMENTUM,
@@ -50,10 +51,10 @@ class Trainer:
         learning_data = TrainingData(model, loss, optimizer, N_BATCHES)
         return learning_data
 
-    def create_model(self) -> AlphaZero:
+    def create_model(self, load_file: Optional[str] = None) -> AlphaZero:
         model = AlphaZero()
         if LOAD_MODEL:
-            model = model.load_model()
+            model = model.load_model(load_file)
         model.train()
         return model
 
