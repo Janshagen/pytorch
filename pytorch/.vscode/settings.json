@@ -2,14 +2,18 @@
     "python.analysis.typeCheckingMode": "basic",
     "cSpell.words": [
         "blit",
+        "cmap",
         "dtype",
         "endboard",
         "gamestate",
+        "imshow",
         "KEYDOWN",
         "MOUSEBUTTONDOWN",
         "optim",
         "PUCT",
         "rollouts",
+        "tensorboard",
+        "torchvision",
         "unsqueeze",
         "vinstprocent",
         "Yatzy"

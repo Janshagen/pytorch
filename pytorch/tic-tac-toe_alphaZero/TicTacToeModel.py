@@ -85,8 +85,7 @@ class AlphaZero(nn.Module):
                       padding=1,
                       device=self.device),
             nn.BatchNorm2d(1, device=self.device),
-            torch.nn.Softmax(dim=-1),
-            nn.Flatten()
+            torch.nn.Softmax(dim=-1)
         )
 
         self.value_head = nn.Sequential(
@@ -111,11 +110,11 @@ class AlphaZero(nn.Module):
                            body: torch.Tensor) -> torch.Tensor:
         policies = self.policy_head(body)
 
-        if self.policy_is_identically_zero(policies):
-            print("FAN DÅ")
-            policies = self.handle_policy_is_zero_case(policies)
+        # if self.policy_is_identically_zero(policies):
+        #     policies = self.handle_policy_is_zero_case(policies)
 
         policies = self.set_illegal_moves_to_zero(boards, policies)
+        policies = policies.reshape(-1, 9)
         policies = nn.functional.normalize(policies, dim=1, p=1)
         return policies
 
@@ -134,17 +133,15 @@ class AlphaZero(nn.Module):
 
     def set_illegal_moves_to_zero(self, boards: torch.Tensor,
                                   policies: torch.Tensor) -> torch.Tensor:
+        ones = torch.ones(policies.shape[1:], device=self.device)
         mask = torch.ones(policies.shape, device=self.device)
-        for b, board in enumerate(boards):
-            for i in range(3):
-                for j in range(3):
-                    if self.square_is_occupied(board, i, j):
-                        mask[b][3*i + j] = 0
-        masked_policy = policies * mask
-        return masked_policy
 
-    def square_is_occupied(self, board: torch.Tensor, i: int, j: int) -> bool:
-        return bool(board[0][i][j] or board[1][i][j])
+        player_one = boards[:, 0] == ones
+        player_two = boards[:, 1] == ones
+        illegal_indices = (player_one + player_two).unsqueeze(dim=1)
+
+        mask[illegal_indices] = 0
+        return policies * mask
 
     def add_noise(self, policy: torch.Tensor):
         sample_size = torch.Size((policy.shape[0],))
