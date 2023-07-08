@@ -31,8 +31,7 @@ class MCTS:
                 self.print_data_if_verbose()
                 return self.root.choose_move()
 
-            current = self.root
-            current = self.traverse_tree(current)
+            current = self.traverse_tree()
 
             if current.visits > 0.5*self.sim_number:
                 self.print_data_if_verbose()
@@ -47,7 +46,8 @@ class MCTS:
         self.print_data_if_verbose()
         return self.root.choose_move()
 
-    def traverse_tree(self, current: Node) -> Node:
+    def traverse_tree(self) -> Node:
+        current = self.root
         current = current.select_child(self.exploration_rate)
         if current.visits > 0.5*self.sim_number:
             return current
@@ -57,15 +57,20 @@ class MCTS:
         return current
 
     def expand_tree(self, current: Node) -> Node:
-        torch_board = self.model.state2tensor(current.game_state)
-        with torch.no_grad():
-            evaluation, policy = self.model(torch_board)
-            if current.parent is None:
-                policy = self.model.add_noise(policy)
+        evaluation, policy = self.evaluate_board(current)
 
         current.evaluation = evaluation.item()
         current.make_children(policy[0])
         return current
+
+    def evaluate_board(self, current: Node) -> tuple[torch.Tensor, torch.Tensor]:
+        torch_board = self.model.state2tensor(current.game_state)
+        with torch.no_grad():
+            evaluation, policy = self.model.forward(torch_board)
+            if current.parent is None:
+                policy = self.model.add_noise(policy)
+                policy = torch.nn.functional.normalize(policy, p=1, dim=1)
+        return evaluation, policy
 
     def print_data_if_verbose(self):
         if self.verbose:

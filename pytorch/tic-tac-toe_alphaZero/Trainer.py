@@ -19,8 +19,8 @@ WEIGHT_DECAY = 0.01
 N_BATCHES = 3_000
 BATCH_SIZE = 5
 
-SIMULATIONS = 50
-UCB1 = 2
+SIMULATIONS = 100
+UCB1 = 1.4
 
 
 class Trainer:
@@ -58,8 +58,10 @@ class Trainer:
             boards = torch.tensor([], device=self.learning_data.device)
             results = torch.tensor([], device=self.learning_data.device)
             visits = torch.tensor([], device=self.learning_data.device)
+            game_lengths = [0]*BATCH_SIZE
             for sample in range(BATCH_SIZE):
                 game_boards, game_result, game_visits = self.get_game_data()
+                game_lengths[sample] = game_boards.shape[0]
 
                 boards = torch.cat((boards, game_boards), dim=0)
                 results = torch.cat((results, game_result), dim=0)
@@ -68,9 +70,11 @@ class Trainer:
             visits = visits.reshape(-1, 9)
             visits = nn.functional.normalize(visits, dim=1, p=1)
 
-            evaluations, policies = self.learning_data.model(boards)
+            evaluations, policies = self.learning_data.model.forward(boards)
 
-            error = self.learning_data.loss(evaluations, results, policies, visits)
+            error = self.learning_data.loss.forward(
+                evaluations, results, policies, visits, game_lengths
+            )
             error.backward()
 
             self.learning_data.optimizer.step()
@@ -105,6 +109,7 @@ class Trainer:
             game_state = self.find_and_make_move(game_state)
             all_boards = self.add_new_flipped_boards(game_state, all_boards)
             all_visits = self.add_new_flipped_visits(all_visits)
+            print(game_state.board)
 
             if game_state.game_over():
                 visits = torch.zeros((1, 3, 3), dtype=torch.float32,

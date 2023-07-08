@@ -9,7 +9,7 @@ from interface import (chooseConfig, draw, gameOver, initializeGame,
 # Configurations
 SIMULATIONS = 1000
 WIDTH = 200
-EXPLORATION_RATE = 2
+EXPLORATION_RATE = 1.4
 
 
 def main() -> None:
@@ -30,6 +30,7 @@ def main() -> None:
 
 def game(mcts: MCTS, game_state: TicTacToeGameState,
          screen: pygame.surface.Surface, frame: pygame.Surface) -> int:
+    move_number = 0
     while True:
         # Human
         if game_state.player == -1:
@@ -39,11 +40,13 @@ def game(mcts: MCTS, game_state: TicTacToeGameState,
 
         # AI
         elif game_state.player == 1:
+            move_number += 1
+            print(f"Move number: {move_number}")
+
             move = mcts.find_move(game_state)
             game_state.make_move(move)
-            resolveEvent(game_state, WIDTH)
 
-            # print_data(game_state, mcts.model)
+            print_data(game_state, mcts.model)
 
         draw(screen, frame, game_state, WIDTH)
 
@@ -53,8 +56,8 @@ def game(mcts: MCTS, game_state: TicTacToeGameState,
 
 def print_data(game_state: TicTacToeGameState, model: AlphaZero) -> None:
     torch_board = model.state2tensor(game_state)
-    print(f"evaluation:{model(torch_board)[0][0][0].item():.4f}")
-    print(f"policy: {model(torch_board)[1][0]}")
+    print(f"Evaluation after move: {model(torch_board)[0][0][0].item():.4f}")
+    print(" ")
 
 
 if __name__ == '__main__':

@@ -175,29 +175,43 @@ class AlphaZero(nn.Module):
         model_name = re.compile(".*?AlphaZero(.*?).pth")
         files = os.listdir(AlphaZero.MODEL_PATH)
 
-        oldest_file_datetime = datetime(2000, 1, 1, 1, 1)
-        oldest_index = 0
+        newest_file_datetime = datetime(2000, 1, 1, 1, 1)
+        newest_index = 0
         for i, file in enumerate(files):
             matches = model_name.match(file)
             if not matches:
                 continue
 
             file_datetime = datetime.strptime(matches.group(1), '%Y-%m-%d %H:%M')
-            if file_datetime > oldest_file_datetime:
-                oldest_file_datetime = file_datetime
-                oldest_index = i
+            if file_datetime > newest_file_datetime:
+                newest_file_datetime = file_datetime
+                newest_index = i
 
-        return AlphaZero.MODEL_PATH + files[oldest_index]
+        return AlphaZero.MODEL_PATH + files[newest_index]
 
 
 class Loss(nn.Module):
     def __init__(self):
         super().__init__()
 
-        self.MSE = nn.MSELoss()
+        self.MSE = nn.MSELoss(reduction="none")
         self.cross_entropy = nn.CrossEntropyLoss()
 
-    def forward(self, evaluation: float, result: int,
-                policy: torch.Tensor, visits: torch.Tensor) -> torch.Tensor:
+    def forward(self, evaluation: torch.Tensor, result: torch.Tensor,
+                policy: torch.Tensor, visits: torch.Tensor,
+                game_lengths: list[int]) -> torch.Tensor:
 
-        return self.MSE(evaluation, result) + self.cross_entropy(policy, visits)
+        cross_entropy = self.cross_entropy.forward(policy, visits)
+
+        mse = self.MSE.forward(evaluation, result)
+        mse_weight = torch.tensor([], device=mse.device)
+        for length in game_lengths:
+            new_weight = torch.linspace(
+                start=0, end=1, steps=length,
+                device=mse.device).unsqueeze(dim=1)
+            new_weight = new_weight*new_weight.sum().item()
+            mse_weight = torch.cat((mse_weight, new_weight))
+
+        weighted_mse = torch.mean(mse*mse_weight)
+
+        return 10 * weighted_mse + cross_entropy
