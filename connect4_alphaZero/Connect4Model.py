@@ -76,6 +76,7 @@ class AlphaZero(nn.Module):
             nn.Dropout2d(self.dropout_rate)
         )
 
+        # ADD BATCH NORMALIZATION????
         self.policy_head = nn.Sequential(
             ConvBlock(self.body_channels, self.policy_channels, self.device),
             nn.ReLU(),
