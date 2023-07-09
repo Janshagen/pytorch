@@ -9,7 +9,8 @@ from GameRules import Connect4GameState
 
 
 class ConvBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, device, kernel_size=3, padding=1):
+    def __init__(self, in_channels: int, out_channels: int,
+                 device: torch.device, kernel_size: int = 3, padding: int = 1):
         super().__init__()
         self.model = nn.Sequential(
             nn.Conv2d(in_channels,
@@ -141,7 +142,7 @@ class AlphaZero(nn.Module):
     def column_is_filled(self, board: torch.Tensor, i: int) -> bool:
         return bool(board[0][0][i] or board[1][0][i])
 
-    def add_noise(self, policy: torch.Tensor):
+    def add_noise(self, policy: torch.Tensor) -> torch.Tensor:
         sample_size = torch.Size((policy.shape[0],))
         noise = self.dirichlet.sample(sample_size)[0].to(self.device)
         return 0.75*policy + 0.25*noise
