@@ -1,9 +1,12 @@
 __pycache__
-test.py
+./test.py
 .venv
+*/.venv
 *.zip
 MNIST
 photos
 *.pdf
 */env
 env
+photos.py
+test.py
