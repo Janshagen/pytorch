@@ -67,10 +67,11 @@ class Trainer:
                 results = torch.cat((results, game_result), dim=0)
                 visits = torch.cat((visits, game_visits), dim=0)
 
-            visits = visits.reshape(-1, 9)
-            visits = nn.functional.normalize(visits, dim=1, p=1)
+            visits = self.reshape_and_normalize(visits)
 
             evaluations, policies = self.learning_data.model.forward(boards)
+            policies = self.mask_illegal_moves(boards, policies)
+            policies = self.reshape_and_normalize(policies)
 
             error = self.learning_data.loss.forward(
                 evaluations, results, policies, visits, game_lengths
@@ -93,6 +94,16 @@ class Trainer:
         game_result = game_result.expand((num_moves, 1))
         return game_board_states, game_result, game_visits
 
+    def reshape_and_normalize(self, input: torch.Tensor) -> torch.Tensor:
+        input = input.reshape((-1, 9))
+        input = nn.functional.normalize(input, dim=1, p=1)
+        return input
+
+    def mask_illegal_moves(self, boards: torch.Tensor,
+                           policies: torch.Tensor) -> torch.Tensor:
+        masks = TicTacToeGameState.get_masks(boards)
+        return policies * masks
+
     def print_info(self, batch: int, evaluations: torch.Tensor,
                    result: torch.Tensor, error: torch.Tensor) -> None:
         print(
@@ -100,7 +111,6 @@ class Trainer:
             f'evaluation: {evaluations[-1].item():.4f}, result: {result[0][0].item()}')
 
     def game(self) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-
         game_state = TicTacToeGameState.new_game(random.choice([1, -1]))
         all_boards = self.new_boards(game_state)
 
@@ -109,7 +119,6 @@ class Trainer:
             game_state = self.find_and_make_move(game_state)
             all_boards = self.add_new_flipped_boards(game_state, all_boards)
             all_visits = self.add_new_flipped_visits(all_visits)
-            print(game_state.board)
 
             if game_state.game_over():
                 visits = torch.zeros((1, 3, 3), dtype=torch.float32,

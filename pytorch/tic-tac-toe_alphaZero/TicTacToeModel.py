@@ -85,7 +85,6 @@ class AlphaZero(nn.Module):
                       padding=1,
                       device=self.device),
             nn.BatchNorm2d(1, device=self.device),
-            torch.nn.Softmax(dim=-1)
         )
 
         self.value_head = nn.Sequential(
@@ -99,53 +98,19 @@ class AlphaZero(nn.Module):
         )
 
     def forward(self, boards: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        body = self.initial_block(boards)
-        body = self.body(body)
+        if len(boards.shape) == 3:
+            boards = torch.unsqueeze(boards, dim=0)
 
-        policies = self.calculate_policies(boards, body)
-        evaluation = self.value_head(body)
+        body = self.initial_block.forward(boards)
+        body = self.body.forward(body)
+
+        policies = self.policy_head.forward(body)
+        evaluation = self.value_head.forward(body)
         return evaluation, policies
 
-    def calculate_policies(self, boards: torch.Tensor,
-                           body: torch.Tensor) -> torch.Tensor:
-        policies = self.policy_head(body)
-
-        # if self.policy_is_identically_zero(policies):
-        #     policies = self.handle_policy_is_zero_case(policies)
-
-        policies = self.set_illegal_moves_to_zero(boards, policies)
-        policies = policies.reshape(-1, 9)
-        policies = nn.functional.normalize(policies, dim=1, p=1)
-        return policies
-
-    def policy_is_identically_zero(self, policies: torch.Tensor) -> torch.Tensor:
-        zeros = torch.zeros((1, 9), device=self.device)
-        return torch.any(torch.all(zeros == policies, dim=1))
-
-    def handle_policy_is_zero_case(self, policies: torch.Tensor) -> torch.Tensor:
-        addition = torch.zeros(policies.shape, device=self.device)
-        zeros = torch.zeros((1, 9), device=self.device)
-        for i, policy in enumerate(policies):
-            if torch.all(zeros == policy):
-                addition[i] = torch.ones((1, 9), device=self.device)
-        policies = policies.clone() + addition
-        return policies
-
-    def set_illegal_moves_to_zero(self, boards: torch.Tensor,
-                                  policies: torch.Tensor) -> torch.Tensor:
-        ones = torch.ones(policies.shape[1:], device=self.device)
-        mask = torch.ones(policies.shape, device=self.device)
-
-        player_one = boards[:, 0] == ones
-        player_two = boards[:, 1] == ones
-        illegal_indices = (player_one + player_two).unsqueeze(dim=1)
-
-        mask[illegal_indices] = 0
-        return policies * mask
-
     def add_noise(self, policy: torch.Tensor):
-        sample_size = torch.Size((policy.shape[0],))
-        noise = self.dirichlet.sample(sample_size)[0].to(self.device)
+        noise = self.dirichlet.sample(torch.Size((1,)))[0]
+        noise = noise.to(self.device).reshape((3, 3))
         return 0.75*policy + 0.25*noise
 
     def state2tensor(self, game_state: TicTacToeGameState) -> torch.Tensor:

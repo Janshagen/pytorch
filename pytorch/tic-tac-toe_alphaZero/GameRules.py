@@ -1,6 +1,7 @@
 import numpy as np
 import numpy.typing as npt
 from typing import TypeAlias, Optional
+import torch
 
 
 class TicTacToeGameState:
@@ -97,3 +98,16 @@ class TicTacToeGameState:
     @staticmethod
     def move2index(move) -> int:
         return TicTacToeGameState.MOVE2INDEX[move]
+
+    @staticmethod
+    def get_masks(boards: torch.Tensor) -> torch.Tensor:
+        number_of_states = boards.shape[0]
+        ones = torch.ones((1, 3, 3), device=boards.device)
+        masks = torch.ones((number_of_states, 1, 3, 3), device=boards.device)
+
+        player_one = boards[:, 0] == ones
+        player_two = boards[:, 1] == ones
+        illegal_indices = (player_one + player_two).unsqueeze(dim=1)
+
+        masks[illegal_indices] = 0
+        return masks

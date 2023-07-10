@@ -64,13 +64,28 @@ class MCTS:
         return current
 
     def evaluate_board(self, current: Node) -> tuple[torch.Tensor, torch.Tensor]:
-        torch_board = self.model.state2tensor(current.game_state)
         with torch.no_grad():
+            torch_board = self.model.state2tensor(current.game_state)
             evaluation, policy = self.model.forward(torch_board)
-            if current.parent is None:
-                policy = self.model.add_noise(policy)
-                policy = torch.nn.functional.normalize(policy, p=1, dim=1)
+            policy = self.add_noise_if_root(current, policy)
+            policy = self.mask_illegal_moves(torch_board, policy)
+            policy = self.reshape_and_normalize(policy)
         return evaluation, policy
+
+    def add_noise_if_root(self, current: Node, policy: torch.Tensor) -> torch.Tensor:
+        if current.parent is None:
+            policy = self.model.add_noise(policy)
+        return policy
+
+    def mask_illegal_moves(self, torch_board: torch.Tensor,
+                           policy: torch.Tensor) -> torch.Tensor:
+        mask = TicTacToeGameState.get_masks(torch_board)
+        return policy * mask
+
+    def reshape_and_normalize(self, policy: torch.Tensor) -> torch.Tensor:
+        policy = policy.reshape((1, 9))
+        policy = torch.nn.functional.normalize(policy, p=1, dim=1)
+        return policy
 
     def print_data_if_verbose(self):
         if self.verbose:
