@@ -21,7 +21,7 @@ class ConvBlock(nn.Module):
             nn.BatchNorm2d(out_channels, device=device),
         )
 
-    def forward(self, X):
+    def forward(self, X: torch.Tensor) -> torch.Tensor:
         return self.model(X)
 
 
@@ -37,7 +37,7 @@ class ResidualBlock(nn.Module):
 
         self.relu = nn.ReLU()
 
-    def forward(self, X):
+    def forward(self, X: torch.Tensor) -> torch.Tensor:
         Y = self.model(X)
         Y = Y + X
         return self.relu(Y)
@@ -53,6 +53,8 @@ class AlphaZero(nn.Module):
     def __init__(self) -> None:
         super().__init__()
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+        self.noise_ratio = 0.25
 
         alpha = 1
         self.dirichlet = torch.distributions.dirichlet.Dirichlet(
@@ -111,7 +113,7 @@ class AlphaZero(nn.Module):
     def add_noise(self, policy: torch.Tensor):
         noise = self.dirichlet.sample(torch.Size((1,)))[0]
         noise = noise.to(self.device).reshape((3, 3))
-        return 0.75*policy + 0.25*noise
+        return (1-self.noise_ratio) * policy + self.noise_ratio * noise
 
     def state2tensor(self, game_state: TicTacToeGameState) -> torch.Tensor:
         np_board = torch.from_numpy(game_state.board).to(self.device)
