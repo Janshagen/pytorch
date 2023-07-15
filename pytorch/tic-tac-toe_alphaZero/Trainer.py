@@ -27,11 +27,13 @@ class Trainer:
     def __init__(self, load_file: Optional[str] = None) -> None:
         self.learning_data = self.create_learning_data(load_file)
         self.mcts = MCTS(self.learning_data.model, UCB1, sim_number=SIMULATIONS)
+        self.running_loss = 0.0
 
     def main(self) -> None:
         print("Training Started")
         self.train()
         self.validate()
+        # draw graph of model
 
         if SAVE_MODEL:
             self.learning_data.save_model()
@@ -59,6 +61,7 @@ class Trainer:
             results = torch.tensor([], device=self.learning_data.device)
             visits = torch.tensor([], device=self.learning_data.device)
             game_lengths = [0]*BATCH_SIZE
+
             for sample in range(BATCH_SIZE):
                 game_boards, game_result, game_visits = self.get_game_data()
                 game_lengths[sample] = game_boards.shape[0]
@@ -67,25 +70,23 @@ class Trainer:
                 results = torch.cat((results, game_result), dim=0)
                 visits = torch.cat((visits, game_visits), dim=0)
 
-            visits = self.reshape_and_normalize(visits)
+            self.learning_data.optimizer.zero_grad()
 
-            evaluations, policies = self.learning_data.model.forward(boards)
-            policies = self.mask_illegal_moves(boards, policies)
-            policies = self.reshape_and_normalize(policies)
+            evaluations, policies = self.get_predictions(boards)
+            visits = self.reshape_and_normalize(visits)
 
             error = self.learning_data.loss.forward(
                 evaluations, results, policies, visits, game_lengths
             )
             error.backward()
+            self.running_loss += error.item()
 
             self.learning_data.optimizer.step()
-            self.learning_data.optimizer.zero_grad()
             self.learning_data.scheduler.step()
 
-            if (batch + 1) % (N_BATCHES/10) == 0:
-                self.print_info(batch, evaluations, results, error)
-                if SAVE_MODEL:
-                    self.learning_data.save_model()
+            self.print_info(batch, evaluations, results, error)
+            self.save_model(batch)
+            self.write_loss(batch)
 
     def get_game_data(self) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         game_board_states, game_result, game_visits = self.game()
@@ -93,22 +94,6 @@ class Trainer:
         num_moves = game_board_states.shape[0]
         game_result = game_result.expand((num_moves, 1))
         return game_board_states, game_result, game_visits
-
-    def reshape_and_normalize(self, input: torch.Tensor) -> torch.Tensor:
-        input = input.reshape((-1, 9))
-        input = nn.functional.normalize(input, dim=1, p=1)
-        return input
-
-    def mask_illegal_moves(self, boards: torch.Tensor,
-                           policies: torch.Tensor) -> torch.Tensor:
-        masks = TicTacToeGameState.get_masks(boards)
-        return policies * masks
-
-    def print_info(self, batch: int, evaluations: torch.Tensor,
-                   result: torch.Tensor, error: torch.Tensor) -> None:
-        print(
-            f'Batch [{batch+1}/{N_BATCHES}], Loss: {error.item():.8f},',
-            f'evaluation: {evaluations[-1].item():.4f}, result: {result[0][0].item()}')
 
     def game(self) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         game_state = TicTacToeGameState.new_game(random.choice([1, -1]))
@@ -172,6 +157,35 @@ class Trainer:
             permutation = new_state.rot90(k=i, dims=flip_dims)
             stack = torch.cat((stack, permutation), dim=0)
         return stack
+
+    def get_predictions(self, boards: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        evaluations, policies = self.learning_data.model.forward(boards)
+        policies = self.mask_illegal_moves(boards, policies)
+        policies = self.reshape_and_normalize(policies)
+        return evaluations, policies
+
+    def reshape_and_normalize(self, input: torch.Tensor) -> torch.Tensor:
+        input = input.reshape((-1, 9))
+        input = nn.functional.normalize(input, dim=1, p=1)
+        return input
+
+    def mask_illegal_moves(self, boards: torch.Tensor,
+                           policies: torch.Tensor) -> torch.Tensor:
+        masks = TicTacToeGameState.get_masks(boards)
+        return policies * masks
+
+    def print_info(self, batch: int, evaluations: torch.Tensor,
+                   result: torch.Tensor, error: torch.Tensor) -> None:
+        print(
+            f'Batch [{batch+1}/{N_BATCHES}], Loss: {error.item():.8f},',
+            f'evaluation: {evaluations[-1].item():.4f}, result: {result[0][0].item()}')
+
+    def save_model(self, batch: int) -> None:
+        if (batch + 1) % (N_BATCHES/10) == 0 and SAVE_MODEL:
+            self.learning_data.save_model()
+
+    def write_loss(self, batch: int) -> None:
+        pass
 
     def validate(self) -> None:
         win1 = np.array([[1, 1, 1],
