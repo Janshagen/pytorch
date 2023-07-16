@@ -31,9 +31,10 @@ class Trainer:
 
     def main(self) -> None:
         print("Training Started")
+        self.learning_data.visualizer.visualize_model(self.learning_data.model)
         self.train()
         self.validate()
-        # draw graph of model
+        self.learning_data.visualizer.close()
 
         if SAVE_MODEL:
             self.learning_data.save_model()
@@ -85,8 +86,8 @@ class Trainer:
             self.learning_data.scheduler.step()
 
             self.print_info(batch, evaluations, results, error)
-            self.save_model(batch)
             self.write_loss(batch)
+            self.save_model(batch)
 
     def get_game_data(self) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         game_board_states, game_result, game_visits = self.game()
@@ -110,8 +111,7 @@ class Trainer:
                                      device=self.learning_data.device)
                 all_visits = self.add_flipped_states(all_visits,
                                                      visits,
-                                                     flip_dims=(1, 2)
-                                                     )
+                                                     flip_dims=(1, 2))
 
                 result = torch.tensor([game_state.get_status()], dtype=torch.float32,
                                       device=self.learning_data.device)
@@ -176,16 +176,21 @@ class Trainer:
 
     def print_info(self, batch: int, evaluations: torch.Tensor,
                    result: torch.Tensor, error: torch.Tensor) -> None:
-        print(
-            f'Batch [{batch+1}/{N_BATCHES}], Loss: {error.item():.8f},',
-            f'evaluation: {evaluations[-1].item():.4f}, result: {result[0][0].item()}')
-
-    def save_model(self, batch: int) -> None:
-        if (batch + 1) % (N_BATCHES/10) == 0 and SAVE_MODEL:
-            self.learning_data.save_model()
+        if (batch+1) % (N_BATCHES/100) == 0:
+            print(
+                f'Batch [{batch+1}/{N_BATCHES}], Loss: {error.item():.8f},',
+                f'evaluation: {evaluations[-1].item():.4f},',
+                f'result: {result[0][0].item()}')
 
     def write_loss(self, batch: int) -> None:
-        pass
+        if (batch+1) % (N_BATCHES/100) == 0:
+            self.learning_data.visualizer.add_loss(
+                self.running_loss/N_BATCHES*100, (batch+1)*BATCH_SIZE)
+            self.running_loss = 0.0
+
+    def save_model(self, batch: int) -> None:
+        if (batch+1) % (N_BATCHES/10) == 0 and SAVE_MODEL:
+            self.learning_data.save_model()
 
     def validate(self) -> None:
         win1 = np.array([[1, 1, 1],

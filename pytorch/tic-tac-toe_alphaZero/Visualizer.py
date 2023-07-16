@@ -26,7 +26,6 @@ class Visualizer:
         self.writer.add_graph(model, grid_model)
 
     def add_loss(self, loss: float, step: int) -> None:
-
         self.writer.add_scalar("Training Loss", loss, step)
 
     def close(self) -> None:

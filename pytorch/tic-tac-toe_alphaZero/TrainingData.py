@@ -2,6 +2,7 @@ from datetime import datetime
 
 import torch
 from TicTacToeModel import AlphaZero, Loss
+from Visualizer import Visualizer
 
 
 class TrainingData:
@@ -13,6 +14,7 @@ class TrainingData:
         self.model = model
         self.loss = loss
         self.optimizer = optimizer
+        self.visualizer = Visualizer()
 
         self.device: torch.device = model.device
         self.scheduler = torch.optim.lr_scheduler.MultiStepLR(
