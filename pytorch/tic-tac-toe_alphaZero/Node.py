@@ -34,10 +34,6 @@ class Node:
             prior = policy[TicTacToeGameState.move2index(move)].item()
 
             child = Node(state, move, prior, parent=self)
-
-            if state.game_over():
-                child.evaluation = state.get_status()
-
             self.children.append(child)
 
     def select_child(self, C: float) -> 'Node':
@@ -75,6 +71,9 @@ class Node:
         if self.parent is None:
             return self.game_state.player
         return -self.game_state.player
+
+    def has_children(self) -> bool:
+        return len(self.children) > 0
 
     def choose_move(self) -> tuple[int, int]:
         visits = [child.visits for child in self.children]

@@ -25,19 +25,19 @@ UCB1 = 1.4
 
 class Trainer:
     def __init__(self, load_file: Optional[str] = None) -> None:
-        self.learning_data = self.create_learning_data(load_file)
-        self.mcts = MCTS(self.learning_data.model, UCB1, sim_number=SIMULATIONS)
+        self.ld = self.create_learning_data(load_file)
+        self.mcts = MCTS(self.ld.model, UCB1, sim_number=SIMULATIONS)
         self.running_loss = 0.0
 
     def main(self) -> None:
         print("Training Started")
-        self.learning_data.visualizer.visualize_model(self.learning_data.model)
+        self.ld.visualizer.visualize_model(self.ld.model)
         self.train()
         self.validate()
-        self.learning_data.visualizer.close()
+        self.ld.visualizer.close()
 
         if SAVE_MODEL:
-            self.learning_data.save_model()
+            self.ld.save_model()
 
     def create_learning_data(self, load_file: Optional[str] = None) -> TrainingData:
         model = self.create_model(load_file)
@@ -58,9 +58,9 @@ class Trainer:
 
     def train(self) -> None:
         for batch in range(N_BATCHES):
-            boards = torch.tensor([], device=self.learning_data.device)
-            results = torch.tensor([], device=self.learning_data.device)
-            visits = torch.tensor([], device=self.learning_data.device)
+            boards = torch.tensor([], device=self.ld.device)
+            results = torch.tensor([], device=self.ld.device)
+            visits = torch.tensor([], device=self.ld.device)
             game_lengths = [0]*BATCH_SIZE
 
             for sample in range(BATCH_SIZE):
@@ -71,19 +71,19 @@ class Trainer:
                 results = torch.cat((results, game_result), dim=0)
                 visits = torch.cat((visits, game_visits), dim=0)
 
-            self.learning_data.optimizer.zero_grad()
+            self.ld.optimizer.zero_grad()
 
             evaluations, policies = self.get_predictions(boards)
             visits = self.reshape_and_normalize(visits)
 
-            error = self.learning_data.loss.forward(
+            error = self.ld.loss.forward(
                 evaluations, results, policies, visits, game_lengths
             )
             error.backward()
             self.running_loss += error.item()
 
-            self.learning_data.optimizer.step()
-            self.learning_data.scheduler.step()
+            self.ld.optimizer.step()
+            self.ld.scheduler.step()
 
             self.print_info(batch, evaluations, results, error)
             self.write_loss(batch)
@@ -100,25 +100,22 @@ class Trainer:
         game_state = TicTacToeGameState.new_game(random.choice([1, -1]))
         all_boards = self.new_boards(game_state)
 
-        all_visits = torch.tensor([], device=self.learning_data.device)
+        all_visits = torch.tensor([], device=self.ld.device)
         while True:
             game_state = self.find_and_make_move(game_state)
             all_boards = self.add_new_flipped_boards(game_state, all_boards)
             all_visits = self.add_new_flipped_visits(all_visits)
 
             if game_state.game_over():
-                visits = torch.zeros((1, 3, 3), dtype=torch.float32,
-                                     device=self.learning_data.device)
-                all_visits = self.add_flipped_states(all_visits,
-                                                     visits,
-                                                     flip_dims=(1, 2))
+                visits = torch.ones((1, 3, 3), dtype=torch.float32, device=self.ld.device)
+                all_visits = self.add_flipped_states(all_visits, visits, flip_dims=(1, 2))
 
                 result = torch.tensor([game_state.get_status()], dtype=torch.float32,
-                                      device=self.learning_data.device)
+                                      device=self.ld.device)
                 return all_boards, result, all_visits
 
     def new_boards(self, game_state: TicTacToeGameState) -> torch.Tensor:
-        all_boards = torch.zeros((4, 4, 3, 3), device=self.learning_data.device)
+        all_boards = torch.zeros((4, 4, 3, 3), device=self.ld.device)
         for i in range(4):
             if game_state.player == 1:
                 all_boards[i][2] = torch.ones((3, 3))
@@ -134,15 +131,12 @@ class Trainer:
     def add_new_flipped_boards(self,
                                game_state: TicTacToeGameState,
                                all_boards: torch.Tensor) -> torch.Tensor:
-        torch_board = self.learning_data.model.state2tensor(game_state)
+        torch_board = self.ld.model.state2tensor(game_state)
         all_boards = self.add_flipped_states(all_boards, torch_board, flip_dims=(2, 3))
         return all_boards
 
     def add_new_flipped_visits(self, all_visits: torch.Tensor) -> torch.Tensor:
-        visits = torch.zeros((1, 3, 3),
-                             dtype=torch.float32,
-                             device=self.learning_data.device
-                             )
+        visits = torch.zeros((1, 3, 3), dtype=torch.float32, device=self.ld.device)
         for child in self.mcts.root.children:
             visits[0][child.move] = child.visits
 
@@ -159,7 +153,7 @@ class Trainer:
         return stack
 
     def get_predictions(self, boards: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        evaluations, policies = self.learning_data.model.forward(boards)
+        evaluations, policies = self.ld.model.forward(boards)
         policies = self.mask_illegal_moves(boards, policies)
         policies = self.reshape_and_normalize(policies)
         return evaluations, policies
@@ -184,37 +178,38 @@ class Trainer:
 
     def write_loss(self, batch: int) -> None:
         if (batch+1) % (N_BATCHES/100) == 0:
-            self.learning_data.visualizer.add_loss(
-                self.running_loss/N_BATCHES*100, (batch+1)*BATCH_SIZE)
+            self.ld.visualizer.add_loss(
+                self.running_loss/N_BATCHES*100,
+                (batch+1)*BATCH_SIZE)
             self.running_loss = 0.0
 
     def save_model(self, batch: int) -> None:
         if (batch+1) % (N_BATCHES/10) == 0 and SAVE_MODEL:
-            self.learning_data.save_model()
+            self.ld.save_model()
 
     def validate(self) -> None:
         win1 = np.array([[1, 1, 1],
                         [-1, 0, -1],
                         [-1, 0, 0]])
         game_state1 = TicTacToeGameState(win1, -1)
-        torch_board1 = self.learning_data.model.state2tensor(game_state1)
+        torch_board1 = self.ld.model.state2tensor(game_state1)
 
         draw = np.array([[1, -1, 1],
                         [-1, 1, -1],
                         [-1, 1, -1]])
         game_state2 = TicTacToeGameState(draw, 1)
-        torch_board2 = self.learning_data.model.state2tensor(game_state2)
+        torch_board2 = self.ld.model.state2tensor(game_state2)
 
         win2 = np.array([[-1, 1, 1],
                         [-1, 1, -1],
                         [-1, -1, 1]])
         game_state3 = TicTacToeGameState(win2, 1)
-        torch_board3 = self.learning_data.model.state2tensor(game_state3)
+        torch_board3 = self.ld.model.state2tensor(game_state3)
 
         with torch.no_grad():
-            print('win 1   :', self.learning_data.model(torch_board1))
-            print('draw (0):', self.learning_data.model(torch_board2))
-            print('win -1  :', self.learning_data.model(torch_board3))
+            print('win 1   :', self.ld.model(torch_board1))
+            print('draw (0):', self.ld.model(torch_board2))
+            print('win -1  :', self.ld.model(torch_board3))
 
 
 if __name__ == '__main__':

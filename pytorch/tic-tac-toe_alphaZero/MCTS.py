@@ -33,34 +33,36 @@ class MCTS:
 
             current = self.traverse_tree()
 
-            if current.visits > 0.5*self.sim_number:
+            if self.best_node_found(current):
                 self.print_data_if_verbose()
                 assert current.move
                 return current.move
 
-            if not current.game_state.game_over():
-                current = self.expand_tree(current)
+            current = self.expand_tree(current)
 
             current.backpropagate()
 
         self.print_data_if_verbose()
         return self.root.choose_move()
 
+    def best_node_found(self, current: Node) -> bool:
+        return current.visits > 0.5*self.sim_number
+
     def traverse_tree(self) -> Node:
         current = self.root
         current = current.select_child(self.exploration_rate)
-        if current.visits > 0.5*self.sim_number:
+        if self.best_node_found(current):
             return current
 
-        while len(current.children) > 0:
+        while current.has_children():
             current = current.select_child(self.exploration_rate)
         return current
 
     def expand_tree(self, current: Node) -> Node:
         evaluation, policy = self.evaluate_board(current)
 
-        current.evaluation = evaluation.item()
         current.make_children(policy[0])
+        current.evaluation = evaluation.item()
         return current
 
     def evaluate_board(self, current: Node) -> tuple[torch.Tensor, torch.Tensor]:
