@@ -176,9 +176,8 @@ class Loss(nn.Module):
             new_weight = torch.linspace(
                 start=0, end=1, steps=length,
                 device=mse.device).unsqueeze(dim=1)
-            new_weight = new_weight*new_weight.sum().item()
-            mse_weight = torch.cat((mse_weight, new_weight))
+            mse_weight = torch.cat((mse_weight, 2*new_weight))
 
         weighted_mse = torch.mean(mse*mse_weight)
 
-        return 10 * weighted_mse + cross_entropy
+        return weighted_mse + cross_entropy

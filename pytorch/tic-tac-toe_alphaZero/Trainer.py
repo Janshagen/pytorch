@@ -22,6 +22,8 @@ BATCH_SIZE = 5
 SIMULATIONS = 100
 UCB1 = 1.4
 
+GAMES_FILE = '/home/anton/skola/egen/pytorch/tic-tac-toe_alphaZero/games.pt'
+
 
 class Trainer:
     def __init__(self, load_file: Optional[str] = None) -> None:
@@ -29,7 +31,7 @@ class Trainer:
         self.mcts = MCTS(self.ld.model, UCB1, sim_number=SIMULATIONS)
         self.running_loss = 0.0
 
-    def main(self) -> None:
+    def train_and_validate(self) -> None:
         print("Training Started")
         self.ld.visualizer.visualize_model(self.ld.model)
         self.train()
@@ -211,7 +213,38 @@ class Trainer:
             print('draw (0):', self.ld.model(torch_board2))
             print('win -1  :', self.ld.model(torch_board3))
 
+    def create_and_save_data(self, number_games: int) -> None:
+        data = self.create_data(number_games)
+        self.save_data(data)
+
+    def create_data(self, number_games: int) -> list[torch.Tensor]:
+        boards = torch.tensor([], device=self.ld.device)
+        results = torch.tensor([], device=self.ld.device)
+        visits = torch.tensor([], device=self.ld.device)
+        game_lengths = torch.zeros((number_games,))
+
+        for sample in range(number_games):
+            game_boards, game_result, game_visits = self.get_game_data()
+            game_lengths[sample] = game_boards.shape[0]
+
+            boards = torch.cat((boards, game_boards), dim=0)
+            results = torch.cat((results, game_result), dim=0)
+            visits = torch.cat((visits, game_visits), dim=0)
+
+        visits = self.reshape_and_normalize(visits)
+        return [boards, results, visits, game_lengths]
+
+    def save_data(self, data: list[torch.Tensor]) -> None:
+        with open(GAMES_FILE, 'wb') as file:
+            torch.save(data, file)
+
+    def load_data(self) -> list[torch.Tensor]:
+        with open(GAMES_FILE, 'rb') as file:
+            data = torch.load(file)
+        return data
+
 
 if __name__ == '__main__':
     trainer = Trainer()
-    trainer.main()
+    trainer.create_and_save_data(10)
+    boards, results, visits, game_lengths = trainer.load_data()
