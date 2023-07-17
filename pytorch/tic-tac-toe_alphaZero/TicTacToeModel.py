@@ -65,6 +65,7 @@ class AlphaZero(nn.Module):
         self.policy_channels = 4
         self.hidden_nodes = 32
 
+        self.number_residual_blocks = 6
         self.dropout_rate = 0.2
 
         self.initial_block = nn.Sequential(
@@ -75,7 +76,7 @@ class AlphaZero(nn.Module):
         self.body = nn.Sequential(
             *[ResidualBlock(self.body_channels,
                             self.body_channels,
-                            self.device) for _ in range(6)],
+                            self.device) for _ in range(self.number_residual_blocks)],
             nn.Dropout2d(self.dropout_rate)
         )
 
@@ -166,7 +167,7 @@ class Loss(nn.Module):
 
     def forward(self, evaluation: torch.Tensor, result: torch.Tensor,
                 policy: torch.Tensor, visits: torch.Tensor,
-                game_lengths: list[int]) -> torch.Tensor:
+                game_lengths: torch.Tensor) -> torch.Tensor:
 
         cross_entropy = self.cross_entropy.forward(policy, visits)
 
@@ -174,7 +175,7 @@ class Loss(nn.Module):
         mse_weight = torch.tensor([], device=mse.device)
         for length in game_lengths:
             new_weight = torch.linspace(
-                start=0, end=1, steps=length,
+                start=0, end=1, steps=int(length),
                 device=mse.device).unsqueeze(dim=1)
             mse_weight = torch.cat((mse_weight, 2*new_weight))
 

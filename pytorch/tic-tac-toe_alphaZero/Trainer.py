@@ -1,13 +1,12 @@
-import random
 from typing import Optional
 
 import numpy as np
 import torch
 import torch.nn as nn
-from TrainingData import TrainingData
+from TrainingTools import TrainingTools
 from GameRules import TicTacToeGameState
-from MCTS import MCTS
 from TicTacToeModel import AlphaZero, Loss
+from GameSimulator import GameSimulator
 
 # Constants
 LOAD_MODEL = False
@@ -27,29 +26,31 @@ GAMES_FILE = '/home/anton/skola/egen/pytorch/tic-tac-toe_alphaZero/games.pt'
 
 class Trainer:
     def __init__(self, load_file: Optional[str] = None) -> None:
-        self.ld = self.create_learning_data(load_file)
-        self.mcts = MCTS(self.ld.model, UCB1, sim_number=SIMULATIONS)
+        self.tt = self.create_training_tools(load_file)
+        self.game_simulator = GameSimulator(self.tt.model, UCB1, SIMULATIONS)
         self.running_loss = 0.0
+
+        # [boards, results, visits, game_lengths]
+        self.initial_data: list[torch.Tensor]
 
     def train_and_validate(self) -> None:
         print("Training Started")
-        self.ld.visualizer.visualize_model(self.ld.model)
+        self.tt.visualizer.visualize_model(self.tt.model)
+        self.initial_data = self.load_data(GAMES_FILE)
         self.train()
         self.validate()
-        self.ld.visualizer.close()
+        self.tt.visualizer.close()
 
         if SAVE_MODEL:
-            self.ld.save_model()
+            self.tt.save_model()
 
-    def create_learning_data(self, load_file: Optional[str] = None) -> TrainingData:
+    def create_training_tools(self, load_file: Optional[str] = None) -> TrainingTools:
         model = self.create_model(load_file)
         optimizer = torch.optim.SGD(model.parameters(),
                                     lr=LEARNING_RATE,
                                     weight_decay=WEIGHT_DECAY)
         loss = Loss()
-
-        learning_data = TrainingData(model, loss, optimizer, N_BATCHES)
-        return learning_data
+        return TrainingTools(model, loss, optimizer, N_BATCHES)
 
     def create_model(self, load_file: Optional[str] = None) -> AlphaZero:
         model = AlphaZero()
@@ -60,102 +61,30 @@ class Trainer:
 
     def train(self) -> None:
         for batch in range(N_BATCHES):
-            boards = torch.tensor([], device=self.ld.device)
-            results = torch.tensor([], device=self.ld.device)
-            visits = torch.tensor([], device=self.ld.device)
-            game_lengths = [0]*BATCH_SIZE
+            boards, results, visits, game_lengths = \
+                self.game_simulator.create_N_data_points(BATCH_SIZE)
 
-            for sample in range(BATCH_SIZE):
-                game_boards, game_result, game_visits = self.get_game_data()
-                game_lengths[sample] = game_boards.shape[0]
+            if batch == 0:
+                boards, results, visits, game_lengths = self.initial_data
 
-                boards = torch.cat((boards, game_boards), dim=0)
-                results = torch.cat((results, game_result), dim=0)
-                visits = torch.cat((visits, game_visits), dim=0)
-
-            self.ld.optimizer.zero_grad()
-
+            self.tt.optimizer.zero_grad()
             evaluations, policies = self.get_predictions(boards)
-            visits = self.reshape_and_normalize(visits)
 
-            error = self.ld.loss.forward(
+            error = self.tt.loss.forward(
                 evaluations, results, policies, visits, game_lengths
             )
             error.backward()
             self.running_loss += error.item()
 
-            self.ld.optimizer.step()
-            self.ld.scheduler.step()
+            self.tt.optimizer.step()
+            self.tt.scheduler.step()
 
             self.print_info(batch, evaluations, results, error)
             self.write_loss(batch)
             self.save_model(batch)
 
-    def get_game_data(self) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        game_board_states, game_result, game_visits = self.game()
-
-        num_moves = game_board_states.shape[0]
-        game_result = game_result.expand((num_moves, 1))
-        return game_board_states, game_result, game_visits
-
-    def game(self) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        game_state = TicTacToeGameState.new_game(random.choice([1, -1]))
-        all_boards = self.new_boards(game_state)
-
-        all_visits = torch.tensor([], device=self.ld.device)
-        while True:
-            game_state = self.find_and_make_move(game_state)
-            all_boards = self.add_new_flipped_boards(game_state, all_boards)
-            all_visits = self.add_new_flipped_visits(all_visits)
-
-            if game_state.game_over():
-                visits = torch.ones((1, 3, 3), dtype=torch.float32, device=self.ld.device)
-                all_visits = self.add_flipped_states(all_visits, visits, flip_dims=(1, 2))
-
-                result = torch.tensor([game_state.get_status()], dtype=torch.float32,
-                                      device=self.ld.device)
-                return all_boards, result, all_visits
-
-    def new_boards(self, game_state: TicTacToeGameState) -> torch.Tensor:
-        all_boards = torch.zeros((4, 4, 3, 3), device=self.ld.device)
-        for i in range(4):
-            if game_state.player == 1:
-                all_boards[i][2] = torch.ones((3, 3))
-            if game_state.player == -1:
-                all_boards[i][3] = torch.ones((3, 3))
-        return all_boards
-
-    def find_and_make_move(self, game_state: TicTacToeGameState) -> TicTacToeGameState:
-        move = self.mcts.find_move(game_state)
-        game_state.make_move(move)
-        return game_state
-
-    def add_new_flipped_boards(self,
-                               game_state: TicTacToeGameState,
-                               all_boards: torch.Tensor) -> torch.Tensor:
-        torch_board = self.ld.model.state2tensor(game_state)
-        all_boards = self.add_flipped_states(all_boards, torch_board, flip_dims=(2, 3))
-        return all_boards
-
-    def add_new_flipped_visits(self, all_visits: torch.Tensor) -> torch.Tensor:
-        visits = torch.zeros((1, 3, 3), dtype=torch.float32, device=self.ld.device)
-        for child in self.mcts.root.children:
-            visits[0][child.move] = child.visits
-
-        all_visits = self.add_flipped_states(all_visits, visits, flip_dims=(1, 2))
-        return all_visits
-
-    def add_flipped_states(self,
-                           stack: torch.Tensor,
-                           new_state: torch.Tensor,
-                           flip_dims: tuple) -> torch.Tensor:
-        for i in range(4):
-            permutation = new_state.rot90(k=i, dims=flip_dims)
-            stack = torch.cat((stack, permutation), dim=0)
-        return stack
-
     def get_predictions(self, boards: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        evaluations, policies = self.ld.model.forward(boards)
+        evaluations, policies = self.tt.model.forward(boards)
         policies = self.mask_illegal_moves(boards, policies)
         policies = self.reshape_and_normalize(policies)
         return evaluations, policies
@@ -180,71 +109,45 @@ class Trainer:
 
     def write_loss(self, batch: int) -> None:
         if (batch+1) % (N_BATCHES/100) == 0:
-            self.ld.visualizer.add_loss(
+            self.tt.visualizer.add_loss(
                 self.running_loss/N_BATCHES*100,
                 (batch+1)*BATCH_SIZE)
             self.running_loss = 0.0
 
     def save_model(self, batch: int) -> None:
         if (batch+1) % (N_BATCHES/10) == 0 and SAVE_MODEL:
-            self.ld.save_model()
+            self.tt.save_model()
+
+    def load_data(self, games_file: str) -> list[torch.Tensor]:
+        with open(games_file, 'rb') as file:
+            data = torch.load(file)
+        return data
 
     def validate(self) -> None:
         win1 = np.array([[1, 1, 1],
                         [-1, 0, -1],
                         [-1, 0, 0]])
         game_state1 = TicTacToeGameState(win1, -1)
-        torch_board1 = self.ld.model.state2tensor(game_state1)
+        torch_board1 = self.tt.model.state2tensor(game_state1)
 
         draw = np.array([[1, -1, 1],
                         [-1, 1, -1],
                         [-1, 1, -1]])
         game_state2 = TicTacToeGameState(draw, 1)
-        torch_board2 = self.ld.model.state2tensor(game_state2)
+        torch_board2 = self.tt.model.state2tensor(game_state2)
 
         win2 = np.array([[-1, 1, 1],
                         [-1, 1, -1],
                         [-1, -1, 1]])
         game_state3 = TicTacToeGameState(win2, 1)
-        torch_board3 = self.ld.model.state2tensor(game_state3)
+        torch_board3 = self.tt.model.state2tensor(game_state3)
 
         with torch.no_grad():
-            print('win 1   :', self.ld.model(torch_board1))
-            print('draw (0):', self.ld.model(torch_board2))
-            print('win -1  :', self.ld.model(torch_board3))
-
-    def create_and_save_data(self, number_games: int) -> None:
-        data = self.create_data(number_games)
-        self.save_data(data)
-
-    def create_data(self, number_games: int) -> list[torch.Tensor]:
-        boards = torch.tensor([], device=self.ld.device)
-        results = torch.tensor([], device=self.ld.device)
-        visits = torch.tensor([], device=self.ld.device)
-        game_lengths = torch.zeros((number_games,))
-
-        for sample in range(number_games):
-            game_boards, game_result, game_visits = self.get_game_data()
-            game_lengths[sample] = game_boards.shape[0]
-
-            boards = torch.cat((boards, game_boards), dim=0)
-            results = torch.cat((results, game_result), dim=0)
-            visits = torch.cat((visits, game_visits), dim=0)
-
-        visits = self.reshape_and_normalize(visits)
-        return [boards, results, visits, game_lengths]
-
-    def save_data(self, data: list[torch.Tensor]) -> None:
-        with open(GAMES_FILE, 'wb') as file:
-            torch.save(data, file)
-
-    def load_data(self) -> list[torch.Tensor]:
-        with open(GAMES_FILE, 'rb') as file:
-            data = torch.load(file)
-        return data
+            print('win 1   :', self.tt.model(torch_board1))
+            print('draw (0):', self.tt.model(torch_board2))
+            print('win -1  :', self.tt.model(torch_board3))
 
 
 if __name__ == '__main__':
     trainer = Trainer()
-    trainer.create_and_save_data(10)
-    boards, results, visits, game_lengths = trainer.load_data()
+    trainer.train_and_validate()

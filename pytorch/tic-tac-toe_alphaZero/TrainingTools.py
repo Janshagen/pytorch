@@ -5,7 +5,7 @@ from TicTacToeModel import AlphaZero, Loss
 from Visualizer import Visualizer
 
 
-class TrainingData:
+class TrainingTools:
     def __init__(self, model: AlphaZero,
                  loss: Loss,
                  optimizer: torch.optim.Optimizer,
