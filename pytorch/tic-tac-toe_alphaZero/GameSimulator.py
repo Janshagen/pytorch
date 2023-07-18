@@ -4,8 +4,11 @@ import random
 from MCTS import MCTS
 from TicTacToeModel import AlphaZero
 import torch.nn as nn
+from datetime import datetime
 
 GAMES_FILE = '/home/anton/skola/egen/pytorch/tic-tac-toe_alphaZero/games.pt'
+
+NUMBER_OF_GAMES_TO_SAVE = 10_000
 
 UCB1 = 1.4
 SIMULATIONS = 100
@@ -34,6 +37,11 @@ class GameSimulator:
             boards = torch.cat((boards, game_boards), dim=0)
             results = torch.cat((results, game_result), dim=0)
             visits = torch.cat((visits, game_visits), dim=0)
+
+            if (sample+1) % 1000 == 0:
+                time = datetime.today().strftime("%H:%M")
+                print(f"{sample+1} games done at {time}")
+
         visits = self.reshape_and_normalize(visits)
         return [boards, results, visits, game_lengths]
 
@@ -112,4 +120,4 @@ class GameSimulator:
 
 if __name__ == '__main__':
     game_simulator = GameSimulator(AlphaZero(), UCB1, SIMULATIONS)
-    game_simulator.create_and_save_data(5)
+    game_simulator.create_and_save_data(NUMBER_OF_GAMES_TO_SAVE)
