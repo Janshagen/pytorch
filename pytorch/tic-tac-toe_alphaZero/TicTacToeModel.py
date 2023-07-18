@@ -18,7 +18,7 @@ class ConvBlock(nn.Module):
                       stride=1,
                       padding=padding,
                       device=device),
-            nn.BatchNorm2d(out_channels, device=device),
+            nn.BatchNorm2d(out_channels, device=device)
         )
 
     def forward(self, X: torch.Tensor) -> torch.Tensor:
@@ -87,7 +87,7 @@ class AlphaZero(nn.Module):
                       kernel_size=3,
                       padding=1,
                       device=self.device),
-            nn.BatchNorm2d(1, device=self.device),
+            nn.BatchNorm2d(1, device=self.device)
         )
 
         self.value_head = nn.Sequential(
@@ -100,6 +100,8 @@ class AlphaZero(nn.Module):
             nn.Tanh()
         )
 
+        self.softmax = nn.Softmax(dim=-1)
+
     def forward(self, boards: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         if len(boards.shape) == 3:
             boards = torch.unsqueeze(boards, dim=0)
@@ -108,6 +110,8 @@ class AlphaZero(nn.Module):
         body = self.body.forward(body)
 
         policies = self.policy_head.forward(body)
+        policies = self.softmax(policies.view((-1, 1, 9))).view((-1, 1, 3, 3))
+
         evaluation = self.value_head.forward(body)
         return evaluation, policies
 
@@ -167,7 +171,7 @@ class Loss(nn.Module):
 
     def forward(self, evaluation: torch.Tensor, result: torch.Tensor,
                 policy: torch.Tensor, visits: torch.Tensor,
-                game_lengths: torch.Tensor) -> torch.Tensor:
+                game_lengths: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
 
         cross_entropy = self.cross_entropy.forward(policy, visits)
 
@@ -181,4 +185,4 @@ class Loss(nn.Module):
 
         weighted_mse = torch.mean(mse*mse_weight)
 
-        return weighted_mse + cross_entropy
+        return weighted_mse + cross_entropy, weighted_mse

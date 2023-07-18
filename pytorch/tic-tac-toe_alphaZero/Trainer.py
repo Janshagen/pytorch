@@ -29,6 +29,7 @@ class Trainer:
         self.tt = self.create_training_tools(load_file)
         self.game_simulator = GameSimulator(self.tt.model, UCB1, SIMULATIONS)
         self.running_loss = 0.0
+        self.running_mse_loss = 0.0
 
         # [boards, results, visits, game_lengths]
         self.initial_data: list[torch.Tensor]
@@ -70,16 +71,17 @@ class Trainer:
             self.tt.optimizer.zero_grad()
             evaluations, policies = self.get_predictions(boards)
 
-            error = self.tt.loss.forward(
+            total_error, mse_error = self.tt.loss.forward(
                 evaluations, results, policies, visits, game_lengths
             )
-            error.backward()
-            self.running_loss += error.item()
+            total_error.backward()
+            self.running_loss += total_error.item()
+            self.running_mse_loss += mse_error.item()
 
             self.tt.optimizer.step()
             self.tt.scheduler.step()
 
-            self.print_info(batch, evaluations, results, error)
+            self.print_info(batch, evaluations, results, total_error)
             self.write_loss(batch)
             self.save_model(batch)
 
@@ -109,10 +111,18 @@ class Trainer:
 
     def write_loss(self, batch: int) -> None:
         if (batch+1) % (N_BATCHES/100) == 0:
-            self.tt.visualizer.add_loss(
-                self.running_loss/N_BATCHES*100,
-                (batch+1)*BATCH_SIZE)
+            self.tt.visualizer.add_loss("Total Loss",
+                                        self.running_loss/N_BATCHES*100,
+                                        (batch+1)*BATCH_SIZE)
+            self.tt.visualizer.add_loss("MSE Loss",
+                                        self.running_mse_loss/N_BATCHES*100,
+                                        (batch+1)*BATCH_SIZE)
+            self.tt.visualizer.add_loss("Cross Entropy Loss",
+                                        (self.running_loss-self.running_mse_loss) /
+                                        N_BATCHES*100,
+                                        (batch+1)*BATCH_SIZE)
             self.running_loss = 0.0
+            self.running_mse_loss = 0.0
 
     def save_model(self, batch: int) -> None:
         if (batch+1) % (N_BATCHES/10) == 0 and SAVE_MODEL:
