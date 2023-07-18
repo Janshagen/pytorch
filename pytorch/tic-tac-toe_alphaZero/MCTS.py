@@ -63,6 +63,8 @@ class MCTS:
 
         current.make_children(policy[0])
         current.evaluation = evaluation.item()
+        if not current.has_children():
+            current.evaluation = current.game_state.get_status()
         return current
 
     def evaluate_board(self, current: Node) -> tuple[torch.Tensor, torch.Tensor]:
