@@ -54,7 +54,7 @@ class GameSimulator:
 
     def game(self) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         game_state = TicTacToeGameState.new_game(random.choice([1, -1]))
-        all_boards = self.new_boards(game_state)
+        all_boards = torch.zeros((4, 4, 3, 3), device=self.device)
 
         all_visits = torch.tensor([], device=self.device)
         while True:
@@ -63,21 +63,9 @@ class GameSimulator:
             all_visits = self.add_new_flipped_visits(all_visits)
 
             if game_state.game_over():
-                visits = torch.ones((1, 3, 3), dtype=torch.float32, device=self.device)
-                all_visits = self.add_flipped_states(all_visits, visits, flip_dims=(1, 2))
-
                 result = torch.tensor([game_state.get_status()], dtype=torch.float32,
                                       device=self.device)
                 return all_boards, result, all_visits
-
-    def new_boards(self, game_state: TicTacToeGameState) -> torch.Tensor:
-        all_boards = torch.zeros((4, 4, 3, 3), device=self.device)
-        for i in range(4):
-            if game_state.player == 1:
-                all_boards[i][2] = torch.ones((3, 3))
-            if game_state.player == -1:
-                all_boards[i][3] = torch.ones((3, 3))
-        return all_boards
 
     def find_and_make_move(self, game_state: TicTacToeGameState) -> TicTacToeGameState:
         move = self.mcts.find_move(game_state)
