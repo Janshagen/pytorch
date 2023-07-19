@@ -166,7 +166,7 @@ class Loss(nn.Module):
     def __init__(self):
         super().__init__()
 
-        self.MSE = nn.MSELoss(reduction="none")
+        self.MSE = nn.MSELoss()
         self.cross_entropy = nn.CrossEntropyLoss()
 
     def forward(self, evaluation: torch.Tensor, result: torch.Tensor,
@@ -176,13 +176,4 @@ class Loss(nn.Module):
         cross_entropy = self.cross_entropy.forward(policy, visits)
 
         mse = self.MSE.forward(evaluation, result)
-        mse_weight = torch.tensor([], device=mse.device)
-        for length in game_lengths:
-            new_weight = torch.linspace(
-                start=0, end=1, steps=int(length),
-                device=mse.device).unsqueeze(dim=1)
-            mse_weight = torch.cat((mse_weight, 2*new_weight))
-
-        weighted_mse = torch.mean(mse*mse_weight)
-
-        return weighted_mse + cross_entropy, weighted_mse
+        return mse + cross_entropy, mse
