@@ -32,12 +32,15 @@ class TicTacToeGameState:
         return TicTacToeGameState(board, starting_player)
 
     def available_moves(self) -> list[tuple[int, int]]:
-        returnMoves = []
+        return_moves = []
+        if self.game_over():
+            return return_moves
+
         for i, row in enumerate(self.board):
             for j, col in enumerate(row):
                 if col == 0:
-                    returnMoves.append((i, j))
-        return returnMoves
+                    return_moves.append((i, j))
+        return return_moves
 
     def make_move(self, move: tuple[int, int]) -> None:
         self.board[move[0]][move[1]] = self.player
