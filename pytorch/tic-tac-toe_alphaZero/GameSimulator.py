@@ -54,7 +54,7 @@ class GameSimulator:
 
     def game(self) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         game_state = TicTacToeGameState.new_game(random.choice([1, -1]))
-        all_boards = torch.zeros((4, 4, 3, 3), device=self.device)
+        all_boards = torch.tensor([], device=self.device)
 
         all_visits = torch.tensor([], device=self.device)
         while True:

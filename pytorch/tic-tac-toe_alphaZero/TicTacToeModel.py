@@ -61,11 +61,11 @@ class AlphaZero(nn.Module):
             torch.ones((1, 9))*alpha
         )
 
-        self.body_channels = 5
-        self.policy_channels = 4
-        self.hidden_nodes = 32
+        self.body_channels = 3
+        self.policy_channels = 2
+        self.hidden_nodes = 16
 
-        self.number_residual_blocks = 6
+        self.number_residual_blocks = 3
         self.dropout_rate = 0.2
 
         self.initial_block = nn.Sequential(
