@@ -94,6 +94,7 @@ class MCTS:
     def print_data_if_verbose(self):
         if self.verbose:
             self.print_data()
+            self.root.print_tree(self.model)
 
     def maximum_time_exceeded(self, start_time: float) -> bool:
         return time.process_time() - start_time > self.sim_time
