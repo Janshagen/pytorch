@@ -54,15 +54,17 @@ class AlphaZero(nn.Module):
         super().__init__()
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+        self.noise_ratio = 0.25
         alpha = 1
         self.dirichlet = torch.distributions.dirichlet.Dirichlet(
             torch.ones((1, 7))*alpha
         )
 
-        self.body_channels = 5
-        self.policy_channels = 3
+        self.body_channels = 3
+        self.policy_channels = 2
         self.hidden_nodes = 32
 
+        self.number_of_residual_blocks = 3
         self.dropout_rate = 0.2
 
         self.initial_block = nn.Sequential(
@@ -73,18 +75,18 @@ class AlphaZero(nn.Module):
         self.body = nn.Sequential(
             *[ResidualBlock(self.body_channels,
                             self.body_channels,
-                            self.device) for _ in range(6)],
+                            self.device) for _ in range(self.number_of_residual_blocks)],
             nn.Dropout2d(self.dropout_rate)
         )
 
         # ADD BATCH NORMALIZATION????
+        # SISTA LINEAR I SLUTET?
         self.policy_head = nn.Sequential(
             ConvBlock(self.body_channels, self.policy_channels, self.device),
             nn.ReLU(),
             nn.Flatten(),
             nn.Linear(self.policy_channels*7*6, 7, device=self.device),
-            torch.nn.Softmax(dim=-1),
-            nn.Flatten()
+            torch.nn.Softmax(dim=-1)
         )
 
         self.value_head = nn.Sequential(
@@ -98,54 +100,19 @@ class AlphaZero(nn.Module):
         )
 
     def forward(self, boards: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        body = self.initial_block(boards)
-        body = self.body(body)
+        if len(boards.shape) == 3:
+            boards = torch.unsqueeze(boards, dim=0)
 
-        policies = self.calculate_policies(boards, body)
-        evaluation = self.value_head(body)
+        body = self.initial_block.forward(boards)
+        body = self.body.forward(body)
+
+        policies = self.policy_head.forward(body)
+        evaluation = self.value_head.forward(body)
         return evaluation, policies
 
-    def calculate_policies(self, boards: torch.Tensor,
-                           body: torch.Tensor) -> torch.Tensor:
-        policies = self.policy_head(body)
-
-        if self.policy_is_identically_zero(policies):
-            policies = self.handle_policy_is_zero_case(policies)
-
-        policies = self.set_illegal_moves_to_zero(boards, policies)
-        policies = nn.functional.normalize(policies, dim=1, p=1)
-        return policies
-
-    def policy_is_identically_zero(self, policies: torch.Tensor) -> torch.Tensor:
-        zeros = torch.zeros((1, 7), device=self.device)
-        return torch.any(torch.all(zeros == policies, dim=1))
-
-    def handle_policy_is_zero_case(self, policies: torch.Tensor) -> torch.Tensor:
-        addition = torch.zeros(policies.shape, device=self.device)
-        zeros = torch.zeros((1, 7), device=self.device)
-        for i, policy in enumerate(policies):
-            if torch.all(zeros == policy):
-                addition[i] = torch.ones((1, 7), device=self.device)
-        policies = policies.clone() + addition
-        return policies
-
-    def set_illegal_moves_to_zero(self, boards: torch.Tensor,
-                                  policies: torch.Tensor) -> torch.Tensor:
-        mask = torch.ones(policies.shape, device=self.device)
-        for b, board in enumerate(boards):
-            for i in range(7):
-                if self.column_is_filled(board, i):
-                    mask[b][i] = 0
-        masked_policy = policies * mask
-        return masked_policy
-
-    def column_is_filled(self, board: torch.Tensor, i: int) -> bool:
-        return bool(board[0][0][i] or board[1][0][i])
-
-    def add_noise(self, policy: torch.Tensor) -> torch.Tensor:
-        sample_size = torch.Size((policy.shape[0],))
-        noise = self.dirichlet.sample(sample_size)[0].to(self.device)
-        return 0.75*policy + 0.25*noise
+    def add_noise(self, policy: torch.Tensor):
+        noise = self.dirichlet.sample(torch.Size((1,)))[0].to(self.device)
+        return (1-self.noise_ratio) * policy + self.noise_ratio * noise
 
     def state2tensor(self, game_state: Connect4GameState) -> torch.Tensor:
         np_board = torch.from_numpy(game_state.board).to(self.device)
@@ -195,7 +162,11 @@ class Loss(nn.Module):
         self.MSE = nn.MSELoss()
         self.cross_entropy = nn.CrossEntropyLoss()
 
-    def forward(self, evaluation: float, result: int,
-                policy: torch.Tensor, visits: torch.Tensor) -> torch.Tensor:
+    def forward(self, evaluation: torch.Tensor, result: torch.Tensor,
+                policy: torch.Tensor, visits: torch.Tensor,
+                game_lengths: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
 
-        return self.MSE(evaluation, result) + self.cross_entropy(policy, visits)
+        cross_entropy = self.cross_entropy.forward(policy, visits)
+
+        mse = self.MSE.forward(evaluation, result)
+        return mse + cross_entropy, mse
