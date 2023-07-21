@@ -34,14 +34,10 @@ class Node:
             prior = policy[move].item()
 
             child = Node(state, move, prior, parent=self)
-
-            if state.game_over():
-                child.evaluation = state.get_status()
-
             self.children.append(child)
 
     def select_child(self, C: float) -> 'Node':
-        if len(self.children) == 0:
+        if not self.has_children():
             return self
 
         child_evaluations = np.zeros(len(self.children))
@@ -76,6 +72,9 @@ class Node:
             return self.game_state.player
         return -self.game_state.player
 
+    def has_children(self) -> bool:
+        return len(self.children) > 0
+
     def choose_move(self) -> int:
         visits = [child.visits for child in self.children]
         max_visits = max(visits)
@@ -83,3 +82,47 @@ class Node:
 
         chosen_child = self.children[max_index]
         return chosen_child.move
+
+    def print_tree(self, model):
+        data = self.tree_traverse(model)
+        for d in data:
+            if d == "first":
+                print(f"(, {self.visits})", end="\n{")
+            elif d == "new generation":
+                print("]}\n{[", end="")
+            elif d == "new child of same parent":
+                print("]  [", end="")
+            else:
+                print(d, end="")
+        print("\n")
+
+    def tree_traverse(self, model) -> list[str]:
+        to_be_traversed: list[tuple['Node', int, str]] = [(self, 0, " ")]
+        instructions = ["first"]
+        previous_level = 0
+        while to_be_traversed:
+            node, level, name_of_node = to_be_traversed.pop(0)
+
+            if previous_level != level:
+                instructions.append("new generation")
+            previous_level = level
+
+            if name_of_node[-1] == "0" and instructions[-1] != "new generation":
+                instructions.append("new child of same parent")
+
+            for i, child in enumerate(node.children):
+                child_name = f"{name_of_node}:{i}"
+                if instructions[-1] == "first":
+                    child_name = f"{i}"
+
+                to_be_traversed.append((child, level + 1, child_name))
+
+            if node.visits != 0:
+                # torch_board = model.state2tensor(current.game_state)
+                # evaluation, _ = model.forward(torch_board)
+                instructions.append(f"({name_of_node}, {node.visits})")
+
+        instructions.pop(1)
+        instructions.pop(1)
+        instructions.append("]}")
+        return instructions

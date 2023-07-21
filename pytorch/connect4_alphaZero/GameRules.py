@@ -1,6 +1,7 @@
 import numpy as np
 import numpy.typing as npt
 from typing import TypeAlias, Optional
+import torch
 
 
 class Connect4GameState:
@@ -28,9 +29,10 @@ class Connect4GameState:
 
     def available_moves(self) -> list[int]:
         available_moves = []
-        all_moves = np.arange(7, dtype=np.int8)
+        if self.game_over():
+            return available_moves
 
-        for col in all_moves:
+        for col in range(7):
             if self.board[0][col] == 0:
                 available_moves.append(col)
         return available_moves
@@ -106,3 +108,16 @@ class Connect4GameState:
 
     def get_status(self):
         return self.status
+
+    @staticmethod
+    def get_masks(boards: torch.Tensor) -> torch.Tensor:
+        number_of_states = boards.shape[0]
+        ones = torch.ones((1, 7), device=boards.device)
+        masks = torch.ones((number_of_states, 7), device=boards.device)
+
+        player_one = boards[:, 0, 0] == ones
+        player_two = boards[:, 1, 0] == ones
+
+        illegal_indices = (player_one + player_two)
+        masks[illegal_indices] = 0
+        return masks

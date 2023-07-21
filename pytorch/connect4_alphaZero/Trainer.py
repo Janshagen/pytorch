@@ -1,13 +1,13 @@
-import random
 from typing import Optional
 
 import numpy as np
 import torch
 import torch.nn as nn
-from TrainingData import TrainingData
+from TrainingTools import TrainingTools
 from GameRules import Connect4GameState
-from MCTS import MCTS
 from Connect4Model import AlphaZero, Loss
+from GameSimulator import GameSimulator
+
 
 # Constants
 LOAD_MODEL = False
@@ -17,39 +17,45 @@ LEARNING_RATE = 0.2
 MOMENTUM = 0.9
 WEIGHT_DECAY = 0.01
 
-N_BATCHES = 3_000
+N_BATCHES = 3000
 BATCH_SIZE = 5
 
 SIMULATIONS = 50
-EXPLORATION_RATE = 3
+EXPLORATION_RATE = 2
+
+GAMES_FILE = '/home/anton/skola/egen/pytorch/connect4_alphaZero/games.pt'
 
 
 class Trainer:
     def __init__(self, load_file: Optional[str] = None):
-        self.learning_data = self.create_learning_data(load_file)
-        self.mcts = MCTS(self.learning_data.model,
-                         EXPLORATION_RATE,
-                         sim_number=SIMULATIONS
-                         )
+        self.tt = self.create_training_tools(load_file)
+        self.game_simulator = GameSimulator(self.tt.model, EXPLORATION_RATE, SIMULATIONS)
 
-    def main(self) -> None:
+        self.running_loss = 0.0
+        self.running_mse_loss = 0.0
+
+        # [boards, results, visits, game_lengths]
+        self.initial_data: list[torch.Tensor]
+
+    def train_and_validate(self) -> None:
         print("Training Started")
+        self.tt.visualizer.visualize_model(self.tt.model)
+        self.initial_data = self.load_data(GAMES_FILE)
         self.train()
         self.validate()
+        self.tt.visualizer.close()
 
         if SAVE_MODEL:
-            self.learning_data.save_model()
+            self.tt.save_model()
 
-    def create_learning_data(self, load_file: Optional[str] = None) -> TrainingData:
+    def create_training_tools(self, load_file: Optional[str] = None) -> TrainingTools:
         model = self.create_model(load_file)
         optimizer = torch.optim.SGD(model.parameters(),
                                     lr=LEARNING_RATE,
                                     momentum=MOMENTUM,
                                     weight_decay=WEIGHT_DECAY)
         loss = Loss()
-
-        learning_data = TrainingData(model, loss, optimizer, N_BATCHES)
-        return learning_data
+        return TrainingTools(model, loss, optimizer, N_BATCHES)
 
     def create_model(self, load_file: Optional[str] = None) -> AlphaZero:
         model = AlphaZero()
@@ -60,111 +66,76 @@ class Trainer:
 
     def train(self) -> None:
         for batch in range(N_BATCHES):
-            boards = torch.tensor([], device=self.learning_data.device)
-            results = torch.tensor([], device=self.learning_data.device)
-            visits = torch.tensor([], device=self.learning_data.device)
-            for sample in range(BATCH_SIZE):
-                game_boards, game_result, game_visits = self.get_game_data()
+            boards, results, visits, game_lengths = \
+                self.game_simulator.create_N_data_points(BATCH_SIZE)
 
-                boards = torch.cat((boards, game_boards), dim=0)
-                results = torch.cat((results, game_result), dim=0)
-                visits = torch.cat((visits, game_visits), dim=0)
+            if batch == 0:
+                boards, results, visits, game_lengths = self.initial_data
 
-            evaluations, policies = self.learning_data.model(boards)
+            self.tt.optimizer.zero_grad()
+            evaluations, policies = self.get_predictions(boards)
 
-            error = self.learning_data.loss(evaluations, results, policies, visits)
-            error.backward()
+            total_error, mse_error = self.tt.loss.forward(
+                evaluations, results, policies, visits, game_lengths
+            )
+            total_error.backward()
+            self.running_loss += total_error.item()
+            self.running_mse_loss += mse_error.item()
 
-            self.learning_data.optimizer.step()
-            self.learning_data.optimizer.zero_grad()
-            self.learning_data.scheduler.step()
+            self.tt.optimizer.step()
+            self.tt.scheduler.step()
 
-            if (batch + 1) % (N_BATCHES/10) == 0:
-                self.print_info(batch, evaluations, results, error)
-                if SAVE_MODEL:
-                    self.learning_data.save_model()
+            self.print_info(batch, evaluations, results, total_error)
+            self.write_loss(batch)
+            self.save_model(batch)
 
-    def get_game_data(self) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        game_board_states, game_result, game_visits = self.game()
+    def get_predictions(self, boards: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        evaluations, policies = self.tt.model.forward(boards)
+        policies = self.mask_illegal_moves(boards, policies)
+        policies = self.reshape_and_normalize(policies)
+        return evaluations, policies
 
-        num_moves = game_board_states.shape[0]
-        game_result = game_result.expand((num_moves, 1))
-        return game_board_states, game_result, game_visits
+    def reshape_and_normalize(self, input: torch.Tensor) -> torch.Tensor:
+        input = input.reshape((-1, 7))
+        input = nn.functional.normalize(input, dim=1, p=1)
+        return input
+
+    def mask_illegal_moves(self, boards: torch.Tensor,
+                           policies: torch.Tensor) -> torch.Tensor:
+        masks = Connect4GameState.get_masks(boards)
+        return policies * masks
 
     def print_info(self, batch: int, evaluations: torch.Tensor,
                    result: torch.Tensor, error: torch.Tensor) -> None:
-        print(
-            f'Batch [{batch+1}/{N_BATCHES}], Loss: {error.item():.8f},',
-            f'evaluation: {evaluations[-1].item():.4f}, result: {result[0][0].item()}')
+        if (batch+1) % (N_BATCHES/100) == 0:
+            print(
+                f'Batch [{batch+1}/{N_BATCHES}], Loss: {error.item():.8f},',
+                f'evaluation: {evaluations[-1].item():.4f},',
+                f'result: {result[0][0].item()}')
 
-    def game(self) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def write_loss(self, batch: int) -> None:
+        if (batch+1) % (N_BATCHES/100) == 0:
+            self.tt.visualizer.add_loss("Total Loss",
+                                        self.running_loss/N_BATCHES*100,
+                                        (batch+1)*BATCH_SIZE)
+            self.tt.visualizer.add_loss("MSE Loss",
+                                        self.running_mse_loss/N_BATCHES*100,
+                                        (batch+1)*BATCH_SIZE)
+            self.tt.visualizer.add_loss("Cross Entropy Loss",
+                                        (self.running_loss-self.running_mse_loss) /
+                                        N_BATCHES*100,
+                                        (batch+1)*BATCH_SIZE)
+            self.running_loss = 0.0
+            self.running_mse_loss = 0.0
 
-        game_state = Connect4GameState.new_game(random.choice([1, -1]))
-        all_boards = self.new_boards(game_state)
+    def save_model(self, batch: int) -> None:
+        if (batch+1) % (N_BATCHES/10) == 0 and SAVE_MODEL:
+            self.tt.save_model()
 
-        all_visits = torch.tensor([], device=self.learning_data.device)
-        while True:
-            game_state = self.find_and_make_move(game_state)
-            all_boards = self.add_new_flipped_boards(game_state, all_boards)
-            all_visits = self.add_new_flipped_visits(all_visits)
-
-            if game_state.game_over():
-                visits = torch.tensor([0.142857143]*7, dtype=torch.float32,
-                                      device=self.learning_data.device)
-
-                all_visits = self.add_flipped_states(all_visits,
-                                                     visits.unsqueeze(dim=0),
-                                                     flip_dims=(1,)
-                                                     )
-
-                result = torch.tensor([game_state.get_status()], dtype=torch.float32,
-                                      device=self.learning_data.device)
-                return all_boards, result, all_visits
-
-    def new_boards(self, game_state: Connect4GameState) -> torch.Tensor:
-        boards = torch.zeros((2, 4, 6, 7), device=self.learning_data.device)
-        for i in range(2):
-            if game_state.player == 1:
-                boards[i][2] = torch.ones((6, 7))
-            elif game_state.player == -1:
-                boards[i][3] = torch.ones((6, 7))
-        return boards
-
-    def find_and_make_move(self, game_state: Connect4GameState) -> Connect4GameState:
-        move = self.mcts.find_move(game_state)
-        game_state.make_move(move)
-        return game_state
-
-    def add_new_flipped_boards(self,
-                               game_state: Connect4GameState,
-                               all_boards: torch.Tensor) -> torch.Tensor:
-        torch_board = self.learning_data.model.state2tensor(game_state)
-        all_boards = self.add_flipped_states(all_boards, torch_board, flip_dims=(3,))
-        return all_boards
-
-    def add_new_flipped_visits(self, all_visits: torch.Tensor) -> torch.Tensor:
-        visits = [0]*7
-        for child in self.mcts.root.children:
-            visits[child.move] = child.visits
-
-        visits = torch.tensor(visits,
-                              dtype=torch.float32,
-                              device=self.learning_data.device
-                              )
-        visits = nn.functional.normalize(visits, dim=0, p=1)
-        visits = torch.unsqueeze(visits, dim=0)
-
-        all_visits = self.add_flipped_states(all_visits, visits, flip_dims=(1,))
-        return all_visits
-
-    def add_flipped_states(self,
-                           stack: torch.Tensor,
-                           new_state: torch.Tensor,
-                           flip_dims: tuple) -> torch.Tensor:
-        stack = torch.cat((stack, new_state), dim=0)
-        new_state = torch.flip(new_state, dims=flip_dims)
-        stack = torch.cat((stack, new_state), dim=0)
-        return stack
+    def load_data(self, games_file: str) -> list[torch.Tensor]:
+        with open(games_file, 'rb') as file:
+            data = torch.load(file)
+        return data
 
     def validate(self) -> None:
         win1 = np.array([[0,  1,  1, -1, 0,  1,  1],
@@ -174,7 +145,7 @@ class Trainer:
                         [1,  1, -1, -1,  1, -1, 1],
                         [-1, -1,  1, -1, -1,  1, -1]])
         game_state1 = Connect4GameState(win1, -1)
-        torch_board1 = self.learning_data.model.state2tensor(game_state1)
+        torch_board1 = self.tt.model.state2tensor(game_state1)
 
         draw = np.array([[1,  1, -1,  1, -1, -1, 1],
                         [-1,  -1,  1,  1, -1,  1, -1],
@@ -183,7 +154,7 @@ class Trainer:
                         [-1, -1, -1,  1, -1,  1, -1],
                         [1,  1,  1, -1,  1, -1, 1]])
         game_state2 = Connect4GameState(draw, -1)
-        torch_board2 = self.learning_data.model.state2tensor(game_state2)
+        torch_board2 = self.tt.model.state2tensor(game_state2)
 
         win2 = np.array([[0,  0,  0,  0,  0,  0,  0],
                         [0, -1, -1, -1, -1,  1,  0],
@@ -192,14 +163,14 @@ class Trainer:
                         [-1,  1,  1, -1, 1, -1,  1],
                         [1, -1,  1, -1, -1, -1,  1]])
         game_state3 = Connect4GameState(win2, 1)
-        torch_board3 = self.learning_data.model.state2tensor(game_state3)
+        torch_board3 = self.tt.model.state2tensor(game_state3)
 
         with torch.no_grad():
-            print('win 1   :', self.learning_data.model(torch_board1))
-            print('draw (0):', self.learning_data.model(torch_board2))
-            print('win -1  :', self.learning_data.model(torch_board3))
+            print('win 1   :', self.tt.model(torch_board1))
+            print('draw (0):', self.tt.model(torch_board2))
+            print('win -1  :', self.tt.model(torch_board3))
 
 
 if __name__ == '__main__':
     trainer = Trainer()
-    trainer.main()
+    trainer.train_and_validate()

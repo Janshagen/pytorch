@@ -33,42 +33,67 @@ class MCTS:
 
             current = self.traverse_tree()
 
-            if current.visits > 0.5*self.sim_number:
+            if self.best_node_found(current):
                 self.print_data_if_verbose()
                 return current.move
 
-            if not current.game_state.game_over():
-                current = self.expand_tree(current)
+            current = self.expand_tree(current)
 
             current.backpropagate()
 
         self.print_data_if_verbose()
         return self.root.choose_move()
 
+    def best_node_found(self, current: Node) -> bool:
+        return current.visits > 0.5*self.sim_number
+
     def traverse_tree(self) -> Node:
         current = self.root
         current = current.select_child(self.exploration_rate)
-        if current.visits > 0.5*self.sim_number:
+        if self.best_node_found(current):
             return current
 
-        while len(current.children) > 0:
+        while current.has_children():
             current = current.select_child(self.exploration_rate)
         return current
 
     def expand_tree(self, current: Node) -> Node:
-        torch_board = self.model.state2tensor(current.game_state)
-        with torch.no_grad():
-            evaluation, policy = self.model(torch_board)
-            if current.parent is None:
-                policy = self.model.add_noise(policy)
+        evaluation, policy = self.evaluate_board(current)
 
-        current.evaluation = evaluation.item()
         current.make_children(policy[0])
+        current.evaluation = evaluation.item()
+        if not current.has_children():
+            current.evaluation = current.game_state.get_status()
         return current
+
+    def evaluate_board(self, current: Node) -> tuple[torch.Tensor, torch.Tensor]:
+        with torch.no_grad():
+            torch_board = self.model.state2tensor(current.game_state)
+            evaluation, policy = self.model.forward(torch_board)
+            policy = self.add_noise_if_root(current, policy)
+            policy = self.mask_illegal_moves(torch_board, policy)
+            policy = self.reshape_and_normalize(policy)
+        return evaluation, policy
+
+    def add_noise_if_root(self, current: Node, policy: torch.Tensor) -> torch.Tensor:
+        if current.parent is None:
+            policy = self.model.add_noise(policy)
+        return policy
+
+    def mask_illegal_moves(self, torch_board: torch.Tensor,
+                           policy: torch.Tensor) -> torch.Tensor:
+        mask = Connect4GameState.get_masks(torch_board)
+        return policy * mask
+
+    def reshape_and_normalize(self, policy: torch.Tensor) -> torch.Tensor:
+        policy = policy.reshape((1, 7))
+        policy = torch.nn.functional.normalize(policy, p=1, dim=1)
+        return policy
 
     def print_data_if_verbose(self):
         if self.verbose:
             self.print_data()
+            self.root.print_tree(self.model)
 
     def maximum_time_exceeded(self, start_time: float) -> bool:
         return time.process_time() - start_time > self.sim_time

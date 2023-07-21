@@ -5,10 +5,10 @@ from interface import InterfaceConnect4
 
 
 # Configurations
-SIMULATIONS = 3000
+SIMULATIONS = 1000
 WIDTH = 120
 HEIGHT = int(WIDTH*0.8)
-EXPLORATION_RATE = 3
+EXPLORATION_RATE = 2
 
 
 def main() -> None:

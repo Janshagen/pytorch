@@ -2,9 +2,10 @@ from datetime import datetime
 
 import torch
 from Connect4Model import AlphaZero, Loss
+from Visualizer import Visualizer
 
 
-class TrainingData:
+class TrainingTools:
     def __init__(self, model: AlphaZero,
                  loss: Loss,
                  optimizer: torch.optim.Optimizer,
@@ -12,13 +13,13 @@ class TrainingData:
 
         self.model = model
         self.loss = loss
-
         self.optimizer = optimizer
+        self.visualizer = Visualizer()
+
+        self.device: torch.device = model.device
         self.scheduler = torch.optim.lr_scheduler.MultiStepLR(
             self.optimizer, milestones=[2*N_BATCHES//10, 8*N_BATCHES//10], gamma=0.1
         )
-
-        self.device: torch.device = model.device
 
     def save_model(self):
         path = self.get_save_path()
@@ -28,4 +29,5 @@ class TrainingData:
     @staticmethod
     def get_save_path() -> str:
         current_time = datetime.today().strftime("%Y-%m-%d %H:%M")
-        return AlphaZero.MODEL_PATH + f'AlphaZero{current_time}.pth'
+        game_dir = '/home/anton/skola/egen/pytorch/connect4_alphaZero'
+        return game_dir + f'/models/AlphaZero{current_time}.pth'
