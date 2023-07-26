@@ -8,7 +8,7 @@ from interface import InterfaceConnect4
 SIMULATIONS = 1000
 WIDTH = 120
 HEIGHT = int(WIDTH*0.8)
-EXPLORATION_RATE = 2
+EXPLORATION_RATE = 5
 
 
 def main() -> None:
@@ -16,7 +16,7 @@ def main() -> None:
     simulations = interface.choose_config(SIMULATIONS)
 
     game_state = Connect4GameState.new_game(starting_player=-1)
-    model = AlphaZero().load_model()
+    model = AlphaZero().load_model("AlphaZero2023-07-23 11:47.pth")
     model.eval()
 
     mcts = MCTS(model, EXPLORATION_RATE, sim_number=simulations, verbose=True)
@@ -33,13 +33,13 @@ def game(mcts: MCTS, game_state: Connect4GameState, interface: InterfaceConnect4
     while True:
         move = None
         # Human
-        if game_state.player == -1:
+        if game_state.player == 1:
             move = interface.resolve_event(game_state)
             if move is not None:
                 game_state.make_move(move)
 
         # AI
-        elif game_state.player == 1:
+        elif game_state.player == -1:
             move_number += 1
             print(f"Move number: {move_number}")
 

@@ -17,19 +17,21 @@ LEARNING_RATE = 0.2
 MOMENTUM = 0.9
 WEIGHT_DECAY = 0.01
 
-N_BATCHES = 3000
+N_BATCHES = 3_000
 BATCH_SIZE = 5
 
 SIMULATIONS = 50
 EXPLORATION_RATE = 2
 
-GAMES_FILE = '/home/anton/skola/egen/pytorch/connect4_alphaZero/games.pt'
+GAMES_FOLDER = '/home/anton/skola/egen/pytorch/connect4_alphaZero/games/'
 
 
 class Trainer:
     def __init__(self, load_file: Optional[str] = None):
         self.tt = self.create_training_tools(load_file)
         self.game_simulator = GameSimulator(self.tt.model, EXPLORATION_RATE, SIMULATIONS)
+
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
         self.running_loss = 0.0
         self.running_mse_loss = 0.0
@@ -40,7 +42,8 @@ class Trainer:
     def train_and_validate(self) -> None:
         print("Training Started")
         self.tt.visualizer.visualize_model(self.tt.model)
-        self.initial_data = self.load_data(GAMES_FILE)
+        self.initial_data = self.load_data(range(5))
+        self.second_data = self.load_data(range(5, 10))
         self.train()
         self.validate()
         self.tt.visualizer.close()
@@ -71,6 +74,8 @@ class Trainer:
 
             if batch == 0:
                 boards, results, visits, game_lengths = self.initial_data
+            elif batch == 1:
+                boards, results, visits, game_lengths = self.second_data
 
             self.tt.optimizer.zero_grad()
             evaluations, policies = self.get_predictions(boards)
@@ -132,9 +137,13 @@ class Trainer:
         if (batch+1) % (N_BATCHES/10) == 0 and SAVE_MODEL:
             self.tt.save_model()
 
-    def load_data(self, games_file: str) -> list[torch.Tensor]:
-        with open(games_file, 'rb') as file:
-            data = torch.load(file)
+    def load_data(self, file_numbers: range) -> list[torch.Tensor]:
+        data = [torch.tensor([], device=self.device) for _ in range(4)]
+        for i in file_numbers:
+            with open(GAMES_FOLDER + f"game_{i}.pt", 'rb') as file:
+                new_data = torch.load(file)
+                for j in range(4):
+                    data[j] = torch.cat((data[j], new_data[j]))
         return data
 
     def validate(self) -> None:

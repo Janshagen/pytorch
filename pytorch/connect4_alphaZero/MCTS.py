@@ -21,6 +21,7 @@ class MCTS:
         self.root: Node
 
         self.verbose = verbose
+        self.max_level = 5
 
     def find_move(self, game_state: Connect4GameState) -> int:
         self.root = Node(game_state)
@@ -93,7 +94,7 @@ class MCTS:
     def print_data_if_verbose(self):
         if self.verbose:
             self.print_data()
-            self.root.print_tree(self.model)
+            self.root.print_tree(self.max_level)
 
     def maximum_time_exceeded(self, start_time: float) -> bool:
         return time.process_time() - start_time > self.sim_time

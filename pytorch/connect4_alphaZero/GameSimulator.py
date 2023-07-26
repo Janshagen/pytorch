@@ -6,9 +6,9 @@ from Connect4Model import AlphaZero
 import torch.nn as nn
 from datetime import datetime
 
-GAMES_FILE = '/home/anton/skola/egen/pytorch/connect4_alphaZero/games.pt'
+GAMES_FOLDER = '/home/anton/skola/egen/pytorch/connect4_alphaZero/games/'
 
-NUMBER_OF_GAMES_TO_SAVE = 3_000
+NUMBER_OF_GAMES_TO_SAVE = 1_000
 
 UCB1 = 2
 SIMULATIONS = 50
@@ -20,15 +20,15 @@ class GameSimulator:
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.model = model
 
-    def create_and_save_data(self, number_games: int) -> None:
+    def create_and_save_data(self, number_games: int, games_file: str) -> None:
         data = self.create_N_data_points(number_games)
-        self.save_data(data)
+        self.save_data(data, games_file)
 
     def create_N_data_points(self, number_games: int) -> list[torch.Tensor]:
         boards = torch.tensor([], device=self.device)
         results = torch.tensor([], device=self.device)
         visits = torch.tensor([], device=self.device)
-        game_lengths = torch.zeros((number_games,))
+        game_lengths = torch.zeros((number_games,), device=self.device)
 
         for sample in range(number_games):
             game_boards, game_result, game_visits = self.get_game_data()
@@ -38,7 +38,7 @@ class GameSimulator:
             results = torch.cat((results, game_result), dim=0)
             visits = torch.cat((visits, game_visits), dim=0)
 
-            if (sample+1) % 1000 == 0:
+            if (sample+1) % 100 == 0:
                 time = datetime.today().strftime("%H:%M")
                 print(f"{sample+1} games done at {time}")
 
@@ -101,11 +101,13 @@ class GameSimulator:
         input = nn.functional.normalize(input, dim=1, p=1)
         return input
 
-    def save_data(self, data: list[torch.Tensor]) -> None:
-        with open(GAMES_FILE, 'wb') as file:
+    def save_data(self, data: list[torch.Tensor], games_file: str) -> None:
+        with open(games_file, 'wb') as file:
             torch.save(data, file)
 
 
 if __name__ == '__main__':
     game_simulator = GameSimulator(AlphaZero(), UCB1, SIMULATIONS)
-    game_simulator.create_and_save_data(NUMBER_OF_GAMES_TO_SAVE)
+    for i in range(10):
+        games_file = GAMES_FOLDER + f"game_{i}.pt"
+        game_simulator.create_and_save_data(NUMBER_OF_GAMES_TO_SAVE, games_file)
