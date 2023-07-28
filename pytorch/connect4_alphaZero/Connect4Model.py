@@ -10,7 +10,7 @@ from GameRules import Connect4GameState
 
 class ConvBlock(nn.Module):
     def __init__(self, in_channels: int, out_channels: int,
-                 device: torch.device, kernel_size: int = 3, padding: int = 1):
+                 device: torch.device, kernel_size: int = 2, padding: int = 1):
         super().__init__()
         self.model = nn.Sequential(
             nn.Conv2d(in_channels,
@@ -44,8 +44,9 @@ class ResidualBlock(nn.Module):
 
 
 class AlphaZero(nn.Module):
-    """Input to forward is a concatenation of n (4, 6, 7) tensors where
-    first layer represents player 1, second layer represents player -1,
+    """Input to forward is a concatenation of n (5, 6, 7) tensors where
+    first layer represents empty cells, second represents player 1,
+    second layer represents player -1,
     and third and fourth layers are either 1s or 0s depending on current player."""
 
     MODEL_PATH = '/home/anton/skola/egen/pytorch/connect4_alphaZero/models/'
@@ -60,15 +61,17 @@ class AlphaZero(nn.Module):
             torch.ones((1, 7))*alpha
         )
 
-        self.body_channels = 3
-        self.policy_channels = 2
-        self.hidden_nodes = 32
+        self.body_channels = 2
+        self.policy_channels = 1
+        self.value_channels = 1
 
-        self.number_of_residual_blocks = 3
+        self.number_of_residual_blocks = 1
         self.dropout_rate = 0.2
 
         self.initial_block = nn.Sequential(
-            ConvBlock(4, self.body_channels, self.device),
+            ConvBlock(5, self.body_channels, self.device),
+            nn.ReLU(),
+            ConvBlock(self.body_channels, self.body_channels, self.device, padding=0),
             nn.ReLU()
         )
 
@@ -80,9 +83,9 @@ class AlphaZero(nn.Module):
         )
 
         # ADD BATCH NORMALIZATION????
-        # SISTA LINEAR I SLUTET?
         self.policy_head = nn.Sequential(
-            ConvBlock(self.body_channels, self.policy_channels, self.device),
+            ConvBlock(self.body_channels, self.policy_channels, self.device,
+                      kernel_size=3),
             nn.ReLU(),
             nn.Flatten(),
             nn.Linear(self.policy_channels*7*6, 7, device=self.device),
@@ -90,14 +93,12 @@ class AlphaZero(nn.Module):
         )
 
         self.value_head = nn.Sequential(
-            ConvBlock(self.body_channels, 1, self.device, kernel_size=1, padding=0),
+            ConvBlock(self.body_channels, self.value_channels, self.device,
+                      kernel_size=1, padding=0),
             nn.ReLU(),
             nn.Flatten(),
-            nn.Linear(7*6, self.hidden_nodes, device=self.device),
-            nn.ReLU(),
-            nn.Linear(self.hidden_nodes, 1, device=self.device),
-            nn.Tanh()
-        )
+            nn.Linear(self.value_channels*7*6, 1, device=self.device),
+            nn.Tanh())
 
     def forward(self, boards: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         if len(boards.shape) == 3:
@@ -119,11 +120,12 @@ class AlphaZero(nn.Module):
         ones = torch.ones((6, 7)).to(self.device)
         zeros = torch.zeros((6, 7)).to(self.device)
 
-        input = torch.empty((1, 4, 6, 7), device=self.device)
-        input[0][0] = (np_board == ones).float()
-        input[0][1] = (np_board == -ones).float()
-        input[0][2] = ones if game_state.player == 1 else zeros
-        input[0][3] = ones if game_state.player == -1 else zeros
+        input = torch.empty((1, 5, 6, 7), device=self.device)
+        input[0][0] = (np_board == zeros).float()
+        input[0][1] = (np_board == ones).float()
+        input[0][2] = (np_board == -ones).float()
+        input[0][3] = ones if game_state.player == 1 else zeros
+        input[0][4] = ones if game_state.player == -1 else zeros
         return input
 
     def load_model(self, file: Optional[str] = None):
@@ -153,6 +155,12 @@ class AlphaZero(nn.Module):
                 oldest_index = i
 
         return AlphaZero.MODEL_PATH + files[oldest_index]
+
+    @staticmethod
+    def reshape_and_normalize(policy: torch.Tensor) -> torch.Tensor:
+        policy = policy.reshape((-1, 7))
+        policy = torch.nn.functional.normalize(policy, p=1, dim=1)
+        return policy
 
 
 class Loss(nn.Module):

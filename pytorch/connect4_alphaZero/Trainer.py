@@ -2,7 +2,6 @@ from typing import Optional
 
 import numpy as np
 import torch
-import torch.nn as nn
 from TrainingTools import TrainingTools
 from GameRules import Connect4GameState
 from Connect4Model import AlphaZero, Loss
@@ -17,13 +16,13 @@ LEARNING_RATE = 0.2
 MOMENTUM = 0.9
 WEIGHT_DECAY = 0.01
 
-N_BATCHES = 3_000
+N_BATCHES = 1_000
 BATCH_SIZE = 5
 
-SIMULATIONS = 50
-EXPLORATION_RATE = 2
+SIMULATIONS = 100
+EXPLORATION_RATE = 4
 
-GAMES_FOLDER = '/home/anton/skola/egen/pytorch/connect4_alphaZero/games/'
+GAMES_FOLDER = '/home/anton/skola/egen/pytorch/connect4_alphaZero/games_5dim/'
 
 
 class Trainer:
@@ -97,13 +96,8 @@ class Trainer:
     def get_predictions(self, boards: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         evaluations, policies = self.tt.model.forward(boards)
         policies = self.mask_illegal_moves(boards, policies)
-        policies = self.reshape_and_normalize(policies)
+        policies = AlphaZero.reshape_and_normalize(policies)
         return evaluations, policies
-
-    def reshape_and_normalize(self, input: torch.Tensor) -> torch.Tensor:
-        input = input.reshape((-1, 7))
-        input = nn.functional.normalize(input, dim=1, p=1)
-        return input
 
     def mask_illegal_moves(self, boards: torch.Tensor,
                            policies: torch.Tensor) -> torch.Tensor:
@@ -112,7 +106,7 @@ class Trainer:
 
     def print_info(self, batch: int, evaluations: torch.Tensor,
                    result: torch.Tensor, error: torch.Tensor) -> None:
-        if (batch+1) % (N_BATCHES/100) == 0:
+        if (batch+1) % (N_BATCHES/10) == 0:
             print(
                 f'Batch [{batch+1}/{N_BATCHES}], Loss: {error.item():.8f},',
                 f'evaluation: {evaluations[-1].item():.4f},',

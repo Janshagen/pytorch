@@ -73,7 +73,7 @@ class MCTS:
             evaluation, policy = self.model.forward(torch_board)
             policy = self.add_noise_if_root(current, policy)
             policy = self.mask_illegal_moves(torch_board, policy)
-            policy = self.reshape_and_normalize(policy)
+            policy = AlphaZero.reshape_and_normalize(policy)
         return evaluation, policy
 
     def add_noise_if_root(self, current: Node, policy: torch.Tensor) -> torch.Tensor:
@@ -85,11 +85,6 @@ class MCTS:
                            policy: torch.Tensor) -> torch.Tensor:
         mask = Connect4GameState.get_masks(torch_board)
         return policy * mask
-
-    def reshape_and_normalize(self, policy: torch.Tensor) -> torch.Tensor:
-        policy = policy.reshape((1, 7))
-        policy = torch.nn.functional.normalize(policy, p=1, dim=1)
-        return policy
 
     def print_data_if_verbose(self):
         if self.verbose:
