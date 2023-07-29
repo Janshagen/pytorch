@@ -19,9 +19,10 @@ WEIGHT_DECAY = 0.01
 N_BATCHES = 1_000
 BATCH_SIZE = 5
 
-SIMULATIONS = 100
+SIMULATIONS = 250
 EXPLORATION_RATE = 4
 
+LOAD_MODEL_NAME = 'AlphaZero2023-07-28 16:35.pth'
 GAMES_FOLDER = '/home/anton/skola/egen/pytorch/connect4_alphaZero/games_5dim/'
 
 
@@ -67,31 +68,37 @@ class Trainer:
         return model
 
     def train(self) -> None:
-        for batch in range(N_BATCHES):
-            boards, results, visits, game_lengths = \
+        self.update_weights(*self.initial_data[:3])
+        self.update_weights(*self.second_data[:3])
+
+        for batch in range(2, N_BATCHES):
+            boards, results, visits, _ = \
                 self.game_simulator.create_N_data_points(BATCH_SIZE)
 
-            if batch == 0:
-                boards, results, visits, game_lengths = self.initial_data
-            elif batch == 1:
-                boards, results, visits, game_lengths = self.second_data
-
-            self.tt.optimizer.zero_grad()
-            evaluations, policies = self.get_predictions(boards)
-
-            total_error, mse_error = self.tt.loss.forward(
-                evaluations, results, policies, visits, game_lengths
-            )
-            total_error.backward()
-            self.running_loss += total_error.item()
-            self.running_mse_loss += mse_error.item()
-
-            self.tt.optimizer.step()
-            self.tt.scheduler.step()
+            evaluations, total_error = self.update_weights(boards, results, visits)
 
             self.print_info(batch, evaluations, results, total_error)
-            self.write_loss(batch)
             self.save_model(batch)
+            self.write_loss(batch)
+
+    def update_weights(self, boards: torch.Tensor,
+                       results: torch.Tensor,
+                       visits: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        self.tt.optimizer.zero_grad()
+        evaluations, policies = self.get_predictions(boards)
+
+        total_error, mse_error = self.tt.loss.forward(
+            evaluations, results, policies, visits
+        )
+
+        total_error.backward()
+        self.running_loss += total_error.item()
+        self.running_mse_loss += mse_error.item()
+
+        self.tt.optimizer.step()
+        self.tt.scheduler.step()
+
+        return evaluations, total_error
 
     def get_predictions(self, boards: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         evaluations, policies = self.tt.model.forward(boards)
@@ -175,5 +182,5 @@ class Trainer:
 
 
 if __name__ == '__main__':
-    trainer = Trainer()
+    trainer = Trainer(LOAD_MODEL_NAME)
     trainer.train_and_validate()
