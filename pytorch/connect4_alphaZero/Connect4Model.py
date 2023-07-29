@@ -82,23 +82,22 @@ class AlphaZero(nn.Module):
             nn.Dropout2d(self.dropout_rate)
         )
 
-        # ADD BATCH NORMALIZATION????
         self.policy_head = nn.Sequential(
             ConvBlock(self.body_channels, self.policy_channels, self.device,
                       kernel_size=3),
             nn.ReLU(),
             nn.Flatten(),
             nn.Linear(self.policy_channels*7*6, 7, device=self.device),
-            torch.nn.Softmax(dim=-1)
+            nn.Softmax(dim=-1)
         )
 
         self.value_head = nn.Sequential(
             ConvBlock(self.body_channels, self.value_channels, self.device,
-                      kernel_size=1, padding=0),
+                      kernel_size=3),
             nn.ReLU(),
             nn.Flatten(),
-            nn.Linear(self.value_channels*7*6, 1, device=self.device),
-            nn.Tanh())
+            nn.Linear(self.value_channels*7*6, 1, device=self.device)
+        )
 
     def forward(self, boards: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         if len(boards.shape) == 3:
@@ -108,7 +107,9 @@ class AlphaZero(nn.Module):
         body = self.body.forward(body)
 
         policies = self.policy_head.forward(body)
+
         evaluation = self.value_head.forward(body)
+        evaluation = torch.tanh(0.2*evaluation)
         return evaluation, policies
 
     def add_noise(self, policy: torch.Tensor):
@@ -120,6 +121,7 @@ class AlphaZero(nn.Module):
         ones = torch.ones((6, 7)).to(self.device)
         zeros = torch.zeros((6, 7)).to(self.device)
 
+        # ändra till två (eller tre) lager
         input = torch.empty((1, 5, 6, 7), device=self.device)
         input[0][0] = (np_board == zeros).float()
         input[0][1] = (np_board == ones).float()
@@ -172,7 +174,8 @@ class Loss(nn.Module):
 
     def forward(self, evaluation: torch.Tensor, result: torch.Tensor,
                 policy: torch.Tensor, visits: torch.Tensor,
-                game_lengths: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+                game_lengths: Optional[torch.Tensor] = None) \
+            -> tuple[torch.Tensor, torch.Tensor]:
 
         cross_entropy = self.cross_entropy.forward(policy, visits)
 
