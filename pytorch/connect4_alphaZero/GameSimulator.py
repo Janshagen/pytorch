@@ -45,27 +45,23 @@ class GameSimulator:
         visits = self.reshape_and_normalize(visits)
         return [boards, results, visits, game_lengths]
 
-    def get_game_data(self) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        game_board_states, game_result, game_visits = self.game()
-
-        num_moves = game_board_states.shape[0]
-        game_result = game_result.expand((num_moves, 1))
-        return game_board_states, game_result, game_visits
-
-    def game(self) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        game_state = Connect4GameState.new_game(random.choice([1, -1]))
+    def get_game_data(self) -> tuple[torch.Tensor, ...]:
+        game_state = Connect4GameState.new_game(random.choice([-1, 1]))
         all_boards = torch.tensor([], device=self.device)
+        player_turns = torch.tensor([], device=self.device)
 
         all_visits = torch.tensor([], device=self.device)
         while True:
-            game_state = self.find_and_make_move(game_state)
             all_boards = self.add_new_flipped_boards(game_state, all_boards)
+            player_turns = self.add_player_turns(game_state, player_turns)
+            game_state = self.find_and_make_move(game_state)
             all_visits = self.add_new_flipped_visits(all_visits)
 
             if game_state.game_over():
-                result = torch.tensor([game_state.get_status()], dtype=torch.float32,
-                                      device=self.device)
-                return all_boards, result, all_visits
+                # ändra så att varannan är 1 och varanan -1
+                results = game_state.get_status() * player_turns
+                results = results.unsqueeze(dim=1)
+                return all_boards, results, all_visits
 
     def find_and_make_move(self, game_state: Connect4GameState) -> Connect4GameState:
         move = self.mcts.find_move(game_state)
@@ -95,6 +91,13 @@ class GameSimulator:
         new_state = torch.flip(new_state, dims=flip_dims)
         stack = torch.cat((stack, new_state), dim=0)
         return stack
+
+    def add_player_turns(self, game_state: Connect4GameState,
+                         player_turns: torch.Tensor) -> torch.Tensor:
+        player = torch.tensor([game_state.player, game_state.player],
+                              dtype=torch.float32, device=self.device)
+        player_turns = torch.cat((player_turns, player))
+        return player_turns
 
     def reshape_and_normalize(self, input: torch.Tensor) -> torch.Tensor:
         input = input.reshape((-1, 7))

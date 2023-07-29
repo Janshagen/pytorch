@@ -18,7 +18,7 @@ class TrainingTools:
 
         self.device: torch.device = model.device
         self.scheduler = torch.optim.lr_scheduler.MultiStepLR(
-            self.optimizer, milestones=[2*N_BATCHES//10, 8*N_BATCHES//10], gamma=0.1
+            self.optimizer, milestones=[2*N_BATCHES//10, 9*N_BATCHES//10], gamma=0.1
         )
 
     def save_model(self):

@@ -60,12 +60,19 @@ class Node:
         return value
 
     def backpropagate(self) -> None:
+        evaluation = self.evaluation
         node = self
-        while node is not None:
+        while node.parent is not None:
             node.visits += 1
-            node.value += node.corresponding_sign(self.evaluation)
+            # change to every other
+            node.value -= evaluation
+            evaluation = -evaluation
             node.average_value = node.value/node.visits
             node = node.parent
+
+        # for root node
+        node.visits += 1
+        node.value += evaluation
 
     def corresponding_sign(self, value: float) -> float:
         if self.my_player() == 1:
@@ -115,7 +122,7 @@ class Node:
 
             if node.visits != 0:
                 instructions.append(
-                    f"({name_of_node}, {node.prior:.2f})")
+                    f"({name_of_node}, {node.evaluation:.2f})")
 
         instructions.pop(1)
         instructions.pop(1)

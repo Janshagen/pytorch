@@ -21,7 +21,7 @@ class MCTS:
         self.root: Node
 
         self.verbose = verbose
-        self.max_level = 5
+        self.max_level = 3
 
     def find_move(self, game_state: Connect4GameState) -> int:
         self.root = Node(game_state)
@@ -109,6 +109,10 @@ class MCTS:
         print(child_values)
         print('priors:', end=' ')
         print(child_prior)
+        print(
+            f"Visits : "
+            f"{[round(visits/(self.root.visits-1), 3) for visits in child_visits]}")
+
         print('')
 
     def rollout(self, current: Node):
