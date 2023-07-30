@@ -21,6 +21,7 @@ class MCTS:
         self.root: Node
 
         self.verbose = verbose
+        self.max_level = 3
 
     def find_move(self, game_state: TicTacToeGameState) -> tuple[int, int]:
         self.root = Node(game_state)
@@ -61,10 +62,14 @@ class MCTS:
     def expand_tree(self, current: Node) -> Node:
         evaluation, policy = self.evaluate_board(current)
 
+        policy = torch.ones(policy.shape, device=policy.device)/policy.shape[1]
+
         current.make_children(policy[0])
         current.evaluation = evaluation.item()
         if not current.has_children():
             current.evaluation = current.game_state.get_status()
+        else:
+            current.evaluation = self.rollout(current)
         return current
 
     def evaluate_board(self, current: Node) -> tuple[torch.Tensor, torch.Tensor]:
@@ -94,7 +99,7 @@ class MCTS:
     def print_data_if_verbose(self):
         if self.verbose:
             self.print_data()
-            self.root.print_tree(self.model)
+            self.root.print_tree(self.max_level)
 
     def maximum_time_exceeded(self, start_time: float) -> bool:
         return time.process_time() - start_time > self.sim_time

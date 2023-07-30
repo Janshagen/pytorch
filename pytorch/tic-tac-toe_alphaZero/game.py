@@ -9,7 +9,7 @@ from interface import (chooseConfig, draw, gameOver, initializeGame,
 # Configurations
 SIMULATIONS = 1000
 WIDTH = 200
-EXPLORATION_RATE = 1.4
+EXPLORATION_RATE = 3
 
 
 def main() -> None:
