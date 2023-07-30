@@ -13,13 +13,12 @@ LOAD_MODEL = False
 SAVE_MODEL = True
 
 LEARNING_RATE = 0.2
-MOMENTUM = 0.9
 WEIGHT_DECAY = 0.01
 
 N_BATCHES = 1_000
 BATCH_SIZE = 5
 
-SIMULATIONS = 250
+SIMULATIONS = 100
 EXPLORATION_RATE = 4
 
 LOAD_MODEL_NAME = 'AlphaZero2023-07-28 16:35.pth'
@@ -42,8 +41,8 @@ class Trainer:
     def train_and_validate(self) -> None:
         print("Training Started")
         self.tt.visualizer.visualize_model(self.tt.model)
-        self.initial_data = self.load_data(range(5))
-        self.second_data = self.load_data(range(5, 10))
+        # self.initial_data = self.load_data(range(5))
+        # self.second_data = self.load_data(range(5, 10))
         self.train()
         self.validate()
         self.tt.visualizer.close()
@@ -55,7 +54,6 @@ class Trainer:
         model = self.create_model(load_file)
         optimizer = torch.optim.SGD(model.parameters(),
                                     lr=LEARNING_RATE,
-                                    momentum=MOMENTUM,
                                     weight_decay=WEIGHT_DECAY)
         loss = Loss()
         return TrainingTools(model, loss, optimizer, N_BATCHES)
@@ -68,8 +66,8 @@ class Trainer:
         return model
 
     def train(self) -> None:
-        self.update_weights(*self.initial_data[:3])
-        self.update_weights(*self.second_data[:3])
+        # self.update_weights(*self.initial_data[:3])
+        # self.update_weights(*self.second_data[:3])
 
         for batch in range(2, N_BATCHES):
             boards, results, visits, _ = \

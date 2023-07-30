@@ -63,7 +63,7 @@ class AlphaZero(nn.Module):
 
         self.body_channels = 2
         self.policy_channels = 1
-        self.value_channels = 1
+        self.hidden_nodes = 32
 
         self.number_of_residual_blocks = 1
         self.dropout_rate = 0.2
@@ -92,11 +92,13 @@ class AlphaZero(nn.Module):
         )
 
         self.value_head = nn.Sequential(
-            ConvBlock(self.body_channels, self.value_channels, self.device,
-                      kernel_size=3),
+            ConvBlock(self.body_channels, 1, self.device,
+                      kernel_size=1, padding=0),
             nn.ReLU(),
             nn.Flatten(),
-            nn.Linear(self.value_channels*7*6, 1, device=self.device)
+            nn.Linear(7*6, self.hidden_nodes, device=self.device),
+            nn.Linear(self.hidden_nodes, 1, device=self.device),
+            nn.Tanh()
         )
 
     def forward(self, boards: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
@@ -109,7 +111,6 @@ class AlphaZero(nn.Module):
         policies = self.policy_head.forward(body)
 
         evaluation = self.value_head.forward(body)
-        evaluation = torch.tanh(0.2*evaluation)
         return evaluation, policies
 
     def add_noise(self, policy: torch.Tensor):

@@ -52,9 +52,9 @@ class GameSimulator:
 
         all_visits = torch.tensor([], device=self.device)
         while True:
-            all_boards = self.add_new_flipped_boards(game_state, all_boards)
-            player_turns = self.add_player_turns(game_state, player_turns)
             game_state = self.find_and_make_move(game_state)
+            player_turns = self.add_player_turns(game_state, player_turns)
+            all_boards = self.add_new_flipped_boards(game_state, all_boards)
             all_visits = self.add_new_flipped_visits(all_visits)
 
             if game_state.game_over():
