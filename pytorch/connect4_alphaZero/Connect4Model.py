@@ -84,7 +84,7 @@ class AlphaZero(nn.Module):
 
         self.policy_head = nn.Sequential(
             ConvBlock(self.body_channels, self.policy_channels, self.device,
-                      kernel_size=3),
+                      kernel_size=1, padding=0),
             nn.ReLU(),
             nn.Flatten(),
             nn.Linear(self.policy_channels*7*6, 7, device=self.device),

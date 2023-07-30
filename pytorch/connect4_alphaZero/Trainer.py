@@ -16,11 +16,11 @@ LEARNING_RATE = 0.2
 MOMENTUM = 0.9
 WEIGHT_DECAY = 0.01
 
-N_BATCHES = 1_000
-BATCH_SIZE = 5
+N_BATCHES = 2_500
+BATCH_SIZE = 1
 
-SIMULATIONS = 250
-EXPLORATION_RATE = 4
+SIMULATIONS = 10
+EXPLORATION_RATE = 3
 
 LOAD_MODEL_NAME = 'AlphaZero2023-07-28 16:35.pth'
 GAMES_FOLDER = '/home/anton/skola/egen/pytorch/connect4_alphaZero/games_5dim/'
@@ -38,6 +38,7 @@ class Trainer:
 
         # [boards, results, visits, game_lengths]
         self.initial_data: list[torch.Tensor]
+        self.second_data: list[torch.Tensor]
 
     def train_and_validate(self) -> None:
         print("Training Started")
@@ -113,11 +114,11 @@ class Trainer:
 
     def print_info(self, batch: int, evaluations: torch.Tensor,
                    result: torch.Tensor, error: torch.Tensor) -> None:
-        if (batch+1) % (N_BATCHES/10) == 0:
-            print(
-                f'Batch [{batch+1}/{N_BATCHES}], Loss: {error.item():.8f},',
-                f'evaluation: {evaluations[-1].item():.4f},',
-                f'result: {result[0][0].item()}')
+        # if (batch+1) % (N_BATCHES/10) == 0:
+        print(
+            f'Batch [{batch+1}/{N_BATCHES}], Loss: {error.item():.8f},',
+            f'evaluation: {evaluations[-1].item():.4f},',
+            f'result: {result[0][0].item()}')
 
     def write_loss(self, batch: int) -> None:
         if (batch+1) % (N_BATCHES/100) == 0:
