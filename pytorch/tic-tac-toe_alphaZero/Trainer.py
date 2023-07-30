@@ -15,11 +15,11 @@ SAVE_MODEL = True
 LEARNING_RATE = 0.2
 WEIGHT_DECAY = 0.01
 
-N_BATCHES = 3_000
-BATCH_SIZE = 5
+N_BATCHES = 1000
+BATCH_SIZE = 1
 
-SIMULATIONS = 100
-UCB1 = 1.4
+SIMULATIONS = 150
+UCB1 = 3
 
 GAMES_FILE = '/home/anton/skola/egen/pytorch/tic-tac-toe_alphaZero/games.pt'
 
@@ -28,6 +28,9 @@ class Trainer:
     def __init__(self, load_file: Optional[str] = None) -> None:
         self.tt = self.create_training_tools(load_file)
         self.game_simulator = GameSimulator(self.tt.model, UCB1, SIMULATIONS)
+
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
         self.running_loss = 0.0
         self.running_mse_loss = 0.0
 
@@ -61,29 +64,36 @@ class Trainer:
         return model
 
     def train(self) -> None:
-        for batch in range(N_BATCHES):
-            boards, results, visits, game_lengths = \
+        # self.update_weights(*self.initial_data[:3])
+
+        for batch in range(1, N_BATCHES):
+            boards, results, visits, _ = \
                 self.game_simulator.create_N_data_points(BATCH_SIZE)
 
-            if batch == 0:
-                boards, results, visits, game_lengths = self.initial_data
-
-            self.tt.optimizer.zero_grad()
-            evaluations, policies = self.get_predictions(boards)
-
-            total_error, mse_error = self.tt.loss.forward(
-                evaluations, results, policies, visits, game_lengths
-            )
-            total_error.backward()
-            self.running_loss += total_error.item()
-            self.running_mse_loss += mse_error.item()
-
-            self.tt.optimizer.step()
-            self.tt.scheduler.step()
+            evaluations, total_error = self.update_weights(boards, results, visits)
 
             self.print_info(batch, evaluations, results, total_error)
             self.write_loss(batch)
             self.save_model(batch)
+
+    def update_weights(self, boards: torch.Tensor,
+                       results: torch.Tensor,
+                       visits: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        self.tt.optimizer.zero_grad()
+        evaluations, policies = self.get_predictions(boards)
+
+        total_error, mse_error = self.tt.loss.forward(
+            evaluations, results, policies, visits
+        )
+
+        total_error.backward()
+        self.running_loss += total_error.item()
+        self.running_mse_loss += mse_error.item()
+
+        self.tt.optimizer.step()
+        self.tt.scheduler.step()
+
+        return evaluations, total_error
 
     def get_predictions(self, boards: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         evaluations, policies = self.tt.model.forward(boards)

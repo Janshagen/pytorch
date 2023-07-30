@@ -61,15 +61,15 @@ class AlphaZero(nn.Module):
             torch.ones((1, 9))*alpha
         )
 
-        self.body_channels = 3
-        self.policy_channels = 2
+        self.body_channels = 2
+        self.policy_channels = 1
         self.hidden_nodes = 16
 
-        self.number_residual_blocks = 3
+        self.number_residual_blocks = 1
         self.dropout_rate = 0.2
 
         self.initial_block = nn.Sequential(
-            ConvBlock(4, self.body_channels, self.device),
+            ConvBlock(5, self.body_channels, self.device),
             nn.ReLU()
         )
 
@@ -125,11 +125,12 @@ class AlphaZero(nn.Module):
         ones = torch.ones((3, 3)).to(self.device)
         zeros = torch.zeros((3, 3)).to(self.device)
 
-        input = torch.empty((1, 4, 3, 3), device=self.device)
-        input[0][0] = (np_board == ones).float()
-        input[0][1] = (np_board == -ones).float()
-        input[0][2] = ones if game_state.player == 1 else zeros
-        input[0][3] = ones if game_state.player == -1 else zeros
+        input = torch.empty((1, 5, 3, 3), device=self.device)
+        input[0][0] = (np_board == zeros).float()
+        input[0][1] = (np_board == ones).float()
+        input[0][2] = (np_board == -ones).float()
+        input[0][3] = ones if game_state.player == 1 else zeros
+        input[0][4] = ones if game_state.player == -1 else zeros
         return input
 
     def load_model(self, file: Optional[str] = None):
@@ -171,7 +172,8 @@ class Loss(nn.Module):
 
     def forward(self, evaluation: torch.Tensor, result: torch.Tensor,
                 policy: torch.Tensor, visits: torch.Tensor,
-                game_lengths: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+                game_lengths: Optional[torch.Tensor] = None) \
+            -> tuple[torch.Tensor, torch.Tensor]:
 
         cross_entropy = self.cross_entropy.forward(policy, visits)
 

@@ -1,5 +1,6 @@
 from typing import Optional
 
+import re
 import numpy as np
 import torch
 from GameRules import TicTacToeGameState
@@ -84,8 +85,8 @@ class Node:
         assert chosen_child.move
         return chosen_child.move
 
-    def print_tree(self, model):
-        data = self.tree_traverse(model)
+    def print_tree(self, max_level: int):
+        data = self.tree_traverse(max_level)
         for d in data:
             if d == "first":
                 print(f"(, {self.visits})", end="\n{")
@@ -97,33 +98,56 @@ class Node:
                 print(d, end="")
         print("\n")
 
-    def tree_traverse(self, model) -> list[str]:
+    def tree_traverse(self, max_level: int) -> list[str]:
         to_be_traversed: list[tuple['Node', int, str]] = [(self, 0, " ")]
         instructions = ["first"]
         previous_level = 0
-        while to_be_traversed:
+        while to_be_traversed and previous_level < max_level:
             node, level, name_of_node = to_be_traversed.pop(0)
 
-            if previous_level != level:
-                instructions.append("new generation")
-            previous_level = level
-
-            if name_of_node[-1] == "0" and instructions[-1] != "new generation":
-                instructions.append("new child of same parent")
-
-            for i, child in enumerate(node.children):
-                child_name = f"{name_of_node}:{i}"
-                if instructions[-1] == "first":
-                    child_name = f"{i}"
-
-                to_be_traversed.append((child, level + 1, child_name))
+            previous_level = \
+                self.check_if_new_generation(instructions, previous_level, level)
+            self.check_if_child_of_new_parent(instructions, name_of_node)
+            self.add_new_children(to_be_traversed, node, level, name_of_node)
 
             if node.visits != 0:
-                # torch_board = model.state2tensor(current.game_state)
-                # evaluation, _ = model.forward(torch_board)
-                instructions.append(f"({name_of_node}, {node.visits})")
+                instructions.append(
+                    f"({name_of_node}, {node.evaluation:.2f})")
 
         instructions.pop(1)
         instructions.pop(1)
         instructions.append("]}")
         return instructions
+
+    def check_if_new_generation(self, instructions: list[str],
+                                previous_level: int,
+                                level: int):
+        if previous_level != level:
+            if instructions[-1] == "child of new parent":
+                instructions.pop()
+            instructions.append("new generation")
+        return level
+
+    def check_if_child_of_new_parent(self, instructions: list[str],
+                                     name_of_node: str):
+        node_name = r"\((.*?),"
+        match = re.search(node_name, instructions[-1])
+        if match and len(match.group(1)) >= 3 and len(name_of_node) >= 3:
+            if match.group(1)[-3] != name_of_node[-3]:
+                instructions.append("child of new parent")
+
+    def add_new_children(self, to_be_traversed: list,
+                         node: 'Node',
+                         level: int,
+                         name_of_node: str):
+        for child in node.children:
+            child_name = f"{name_of_node}:{child.move}"
+            if level == 0:
+                child_name = f"{child.move}"
+
+            to_be_traversed.append((child, level + 1, child_name))
+
+    # () = one node
+    # [] = children of one parent
+    # {} = one generation
+    # Node is only shown if visits > 0

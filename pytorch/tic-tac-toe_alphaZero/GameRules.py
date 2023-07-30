@@ -108,8 +108,8 @@ class TicTacToeGameState:
         ones = torch.ones((1, 3, 3), device=boards.device)
         masks = torch.ones((number_of_states, 1, 3, 3), device=boards.device)
 
-        player_one = boards[:, 0] == ones
-        player_two = boards[:, 1] == ones
+        player_one = boards[:, 1] == ones
+        player_two = boards[:, 2] == ones
         illegal_indices = (player_one + player_two).unsqueeze(dim=1)
 
         masks[illegal_indices] = 0
