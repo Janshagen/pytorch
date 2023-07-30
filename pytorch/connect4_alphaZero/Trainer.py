@@ -13,13 +13,12 @@ LOAD_MODEL = False
 SAVE_MODEL = True
 
 LEARNING_RATE = 0.2
-MOMENTUM = 0.9
 WEIGHT_DECAY = 0.01
 
-N_BATCHES = 2_500
+N_BATCHES = 1000
 BATCH_SIZE = 1
 
-SIMULATIONS = 10
+SIMULATIONS = 250
 EXPLORATION_RATE = 3
 
 LOAD_MODEL_NAME = 'AlphaZero2023-07-28 16:35.pth'
@@ -56,7 +55,6 @@ class Trainer:
         model = self.create_model(load_file)
         optimizer = torch.optim.SGD(model.parameters(),
                                     lr=LEARNING_RATE,
-                                    momentum=MOMENTUM,
                                     weight_decay=WEIGHT_DECAY)
         loss = Loss()
         return TrainingTools(model, loss, optimizer, N_BATCHES)
@@ -114,11 +112,11 @@ class Trainer:
 
     def print_info(self, batch: int, evaluations: torch.Tensor,
                    result: torch.Tensor, error: torch.Tensor) -> None:
-        # if (batch+1) % (N_BATCHES/10) == 0:
-        print(
-            f'Batch [{batch+1}/{N_BATCHES}], Loss: {error.item():.8f},',
-            f'evaluation: {evaluations[-1].item():.4f},',
-            f'result: {result[0][0].item()}')
+        if (batch+1) % (N_BATCHES/10) == 0:
+            print(
+                f'Batch [{batch+1}/{N_BATCHES}], Loss: {error.item():.8f},',
+                f'evaluation: {evaluations[-1].item():.4f},',
+                f'result: {result[0][0].item()}')
 
     def write_loss(self, batch: int) -> None:
         if (batch+1) % (N_BATCHES/100) == 0:
