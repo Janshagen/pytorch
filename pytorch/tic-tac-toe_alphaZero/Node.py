@@ -118,7 +118,8 @@ class Node:
 
             if node.visits != 0:
                 instructions.append(
-                    f"({name_of_node}, {node.value:.2f})")
+                    # CHANGE WHAT TO PRINT HERE
+                    f"({name_of_node}, {node.evaluation:.2f})")
 
         instructions.pop(1)
         instructions.pop(1)
