@@ -65,7 +65,7 @@ class MCTS:
         current.make_children(policy[0])
         current.evaluation = evaluation.item()
         if not current.has_children():
-            current.evaluation = current.game_state.get_status()
+            current.evaluation = - abs(current.game_state.get_status())
         return current
 
     def evaluate_board(self, current: Node) -> tuple[torch.Tensor, torch.Tensor]:
@@ -115,6 +115,10 @@ class MCTS:
         print(child_values)
         print('priors:', end=' ')
         print(child_prior)
+        print(
+            f"Visits : "
+            f"{[round(visits/(self.root.visits-1), 3) for visits in child_visits]}")
+
         print('')
 
     def rollout(self, current: Node):

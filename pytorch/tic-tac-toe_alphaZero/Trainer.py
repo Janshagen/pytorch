@@ -15,12 +15,13 @@ SAVE_MODEL = True
 LEARNING_RATE = 0.2
 WEIGHT_DECAY = 0.01
 
-N_BATCHES = 1_000
+N_BATCHES = 1000
 BATCH_SIZE = 1
 
-SIMULATIONS = 100
+SIMULATIONS = 150
 UCB1 = 3
 
+LOAD_MODEL_NAME = 'AlphaZero2023-08-01 11:40.pth'
 GAMES_FILE = '/home/anton/skola/egen/pytorch/tic-tac-toe_alphaZero/games.pt'
 
 
@@ -160,5 +161,5 @@ class Trainer:
 
 
 if __name__ == '__main__':
-    trainer = Trainer()
+    trainer = Trainer(LOAD_MODEL_NAME)
     trainer.train_and_validate()

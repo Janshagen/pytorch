@@ -61,7 +61,7 @@ class Node:
             node.visits += 1
             # change to every other
             node.value -= evaluation
-            evaluation = -evaluation
+            evaluation *= -1
             node.average_value = node.value/node.visits
             node = node.parent
 
@@ -119,7 +119,7 @@ class Node:
             if node.visits != 0:
                 instructions.append(
                     # CHANGE WHAT TO PRINT HERE
-                    f"({name_of_node}, {node.evaluation:.2f})")
+                    f"({name_of_node}, {node.evaluation:.2f}, {node.value:.2f})")
 
         instructions.pop(1)
         instructions.pop(1)

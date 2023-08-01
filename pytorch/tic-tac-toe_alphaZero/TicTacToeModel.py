@@ -69,7 +69,7 @@ class AlphaZero(nn.Module):
         self.dropout_rate = 0.2
 
         self.initial_block = nn.Sequential(
-            ConvBlock(5, self.body_channels, self.device),
+            ConvBlock(3, self.body_channels, self.device),
             nn.ReLU()
         )
 
@@ -125,12 +125,11 @@ class AlphaZero(nn.Module):
         ones = torch.ones((3, 3)).to(self.device)
         zeros = torch.zeros((3, 3)).to(self.device)
 
-        input = torch.empty((1, 5, 3, 3), device=self.device)
-        input[0][0] = (np_board == zeros).float()
-        input[0][1] = (np_board == ones).float()
-        input[0][2] = (np_board == -ones).float()
-        input[0][3] = ones if game_state.player == 1 else zeros
-        input[0][4] = ones if game_state.player == -1 else zeros
+        input = torch.empty((1, 3, 3, 3), device=self.device)
+        current_player = game_state.player
+        input[0][0] = (np_board == current_player*ones).float()
+        input[0][1] = (np_board == -current_player*ones).float()
+        input[0][2] = (np_board == zeros).float()
         return input
 
     def load_model(self, file: Optional[str] = None):

@@ -7,7 +7,7 @@ from interface import (chooseConfig, draw, gameOver, initializeGame,
 
 
 # Configurations
-SIMULATIONS = 1000
+SIMULATIONS = 150
 WIDTH = 200
 EXPLORATION_RATE = 3
 
