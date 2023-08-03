@@ -5,6 +5,7 @@
         "cmap",
         "dtype",
         "endboard",
+        "fivedim",
         "gamestate",
         "imshow",
         "KEYDOWN",
