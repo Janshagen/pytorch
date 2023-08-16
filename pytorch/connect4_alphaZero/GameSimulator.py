@@ -24,15 +24,13 @@ class GameSimulator:
         data = self.create_N_data_points(number_games)
         self.save_data(data, games_file)
 
-    def create_N_data_points(self, number_games: int) -> list[torch.Tensor]:
+    def create_N_data_points(self, number_games: int = 1) -> list[torch.Tensor]:
         boards = torch.tensor([], device=self.device)
         results = torch.tensor([], device=self.device)
         visits = torch.tensor([], device=self.device)
-        game_lengths = torch.zeros((number_games,), device=self.device)
 
         for sample in range(number_games):
             game_boards, game_result, game_visits = self.get_game_data()
-            game_lengths[sample] = game_boards.shape[0]
 
             boards = torch.cat((boards, game_boards), dim=0)
             results = torch.cat((results, game_result), dim=0)
@@ -43,7 +41,7 @@ class GameSimulator:
                 print(f"{sample+1} games done at {time}")
 
         visits = self.reshape_and_normalize(visits)
-        return [boards, results, visits, game_lengths]
+        return [boards, results, visits]
 
     def get_game_data(self) -> tuple[torch.Tensor, ...]:
         game_state = Connect4GameState.new_game(random.choice([-1, 1]))

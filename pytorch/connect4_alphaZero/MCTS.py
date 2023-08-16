@@ -26,11 +26,11 @@ class MCTS:
     def find_move(self, game_state: Connect4GameState) -> int:
         self.root = Node(game_state)
 
-        start_time = time.process_time()
+        # start_time = time.process_time()
         for _ in range(self.sim_number):
-            if self.maximum_time_exceeded(start_time):
-                self.print_data_if_verbose()
-                return self.root.choose_move()
+            # if self.maximum_time_exceeded(start_time):
+            #     self.print_data_if_verbose()
+            #     return self.root.choose_move()
 
             current = self.traverse_tree()
 
@@ -64,7 +64,7 @@ class MCTS:
         current.make_children(policy[0])
         current.evaluation = evaluation.item()
         if not current.has_children():
-            current.evaluation = current.game_state.get_status()
+            current.evaluation = - abs(current.game_state.get_status())
         return current
 
     def evaluate_board(self, current: Node) -> tuple[torch.Tensor, torch.Tensor]:

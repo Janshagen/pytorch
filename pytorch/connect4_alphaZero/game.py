@@ -15,8 +15,8 @@ def main() -> None:
     interface = InterfaceConnect4(WIDTH, HEIGHT)
     simulations = interface.choose_config(SIMULATIONS)
 
-    game_state = Connect4GameState.new_game(starting_player=-1)
-    model = AlphaZero().load_model("AlphaZero2023-07-23 11:47.pth")
+    game_state = Connect4GameState.new_game(starting_player=1)
+    model = AlphaZero().load_model("AlphaZero2023-08-16 02:37.pth")
     model.eval()
 
     mcts = MCTS(model, EXPLORATION_RATE, sim_number=simulations, verbose=True)
