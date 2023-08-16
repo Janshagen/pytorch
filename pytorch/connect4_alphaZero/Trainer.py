@@ -12,13 +12,14 @@ from GameSimulator import GameSimulator
 LOAD_MODEL = False
 SAVE_MODEL = True
 
-LEARNING_RATE = 0.2
+LEARNING_RATE = 0.1
+MOMENTUM = 0.05
 WEIGHT_DECAY = 0.01
 
-N_BATCHES = 1_000
-BATCH_SIZE = 5
+N_GAMES = 2_500
+BATCH_SIZE = 6
 
-SIMULATIONS = 100
+SIMULATIONS = 250
 EXPLORATION_RATE = 4
 
 LOAD_MODEL_NAME = 'AlphaZero2023-07-28 16:35.pth'
@@ -32,31 +33,21 @@ class Trainer:
 
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+        torch.manual_seed(42)
         self.running_loss = 0.0
         self.running_mse_loss = 0.0
 
         # [boards, results, visits, game_lengths]
         self.initial_data: list[torch.Tensor]
 
-    def train_and_validate(self) -> None:
-        print("Training Started")
-        self.tt.visualizer.visualize_model(self.tt.model)
-        # self.initial_data = self.load_data(range(5))
-        # self.second_data = self.load_data(range(5, 10))
-        self.train()
-        self.validate()
-        self.tt.visualizer.close()
-
-        if SAVE_MODEL:
-            self.tt.save_model()
-
     def create_training_tools(self, load_file: Optional[str] = None) -> TrainingTools:
         model = self.create_model(load_file)
         optimizer = torch.optim.SGD(model.parameters(),
                                     lr=LEARNING_RATE,
+                                    momentum=MOMENTUM,
                                     weight_decay=WEIGHT_DECAY)
         loss = Loss()
-        return TrainingTools(model, loss, optimizer, N_BATCHES)
+        return TrainingTools(model, loss, optimizer, N_GAMES)
 
     def create_model(self, load_file: Optional[str] = None) -> AlphaZero:
         model = AlphaZero()
@@ -65,19 +56,37 @@ class Trainer:
         model.train()
         return model
 
+    def train_and_validate(self) -> None:
+        print("Training Started")
+        self.tt.visualizer.visualize_model(self.tt.model)
+        self.train()
+        self.validate()
+        self.tt.visualizer.close()
+
+        if SAVE_MODEL:
+            self.tt.save_model()
+
     def train(self) -> None:
-        # self.update_weights(*self.initial_data[:3])
-        # self.update_weights(*self.second_data[:3])
+        for game in range(N_GAMES):
+            boards, results, visits = \
+                self.game_simulator.create_N_data_points(number_games=1)
 
-        for batch in range(2, N_BATCHES):
-            boards, results, visits, _ = \
-                self.game_simulator.create_N_data_points(BATCH_SIZE)
+            permutation = torch.randperm(boards.shape[0])
+            boards = boards[permutation]
+            results = results[permutation]
+            visits = visits[permutation]
 
-            evaluations, total_error = self.update_weights(boards, results, visits)
+            evaluations = total_error = torch.tensor([])
+            for i in range(0, boards.shape[0], BATCH_SIZE):
+                evaluations, total_error = self.update_weights(
+                    boards[i:i + BATCH_SIZE],
+                    results[i:i + BATCH_SIZE],
+                    visits[i:i + BATCH_SIZE])
 
-            self.print_info(batch, evaluations, results, total_error)
-            self.save_model(batch)
-            self.write_loss(batch)
+            self.tt.scheduler.step()
+            self.print_info(game, evaluations, results, total_error)
+            self.save_model(game)
+            self.write_loss(game)
 
     def update_weights(self, boards: torch.Tensor,
                        results: torch.Tensor,
@@ -90,11 +99,10 @@ class Trainer:
         )
 
         total_error.backward()
+        self.tt.optimizer.step()
+
         self.running_loss += total_error.item()
         self.running_mse_loss += mse_error.item()
-
-        self.tt.optimizer.step()
-        self.tt.scheduler.step()
 
         return evaluations, total_error
 
@@ -111,29 +119,29 @@ class Trainer:
 
     def print_info(self, batch: int, evaluations: torch.Tensor,
                    result: torch.Tensor, error: torch.Tensor) -> None:
-        if (batch+1) % (N_BATCHES/10) == 0:
+        if (batch+1) % (N_GAMES/10) == 0:
             print(
-                f'Batch [{batch+1}/{N_BATCHES}], Loss: {error.item():.8f},',
+                f'Batch [{batch+1}/{N_GAMES}], Loss: {error.item():.8f},',
                 f'evaluation: {evaluations[-1].item():.4f},',
                 f'result: {result[0][0].item()}')
 
     def write_loss(self, batch: int) -> None:
-        if (batch+1) % (N_BATCHES/100) == 0:
+        if (batch+1) % (N_GAMES/100) == 0:
             self.tt.visualizer.add_loss("Total Loss",
-                                        self.running_loss/N_BATCHES*100,
+                                        self.running_loss/N_GAMES*100,
                                         (batch+1)*BATCH_SIZE)
             self.tt.visualizer.add_loss("MSE Loss",
-                                        self.running_mse_loss/N_BATCHES*100,
+                                        self.running_mse_loss/N_GAMES*100,
                                         (batch+1)*BATCH_SIZE)
             self.tt.visualizer.add_loss("Cross Entropy Loss",
                                         (self.running_loss-self.running_mse_loss) /
-                                        N_BATCHES*100,
+                                        N_GAMES*100,
                                         (batch+1)*BATCH_SIZE)
             self.running_loss = 0.0
             self.running_mse_loss = 0.0
 
     def save_model(self, batch: int) -> None:
-        if (batch+1) % (N_BATCHES/10) == 0 and SAVE_MODEL:
+        if (batch+1) % (N_GAMES/10) == 0 and SAVE_MODEL:
             self.tt.save_model()
 
     def load_data(self, file_numbers: range) -> list[torch.Tensor]:

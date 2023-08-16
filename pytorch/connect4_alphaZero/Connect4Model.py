@@ -44,10 +44,9 @@ class ResidualBlock(nn.Module):
 
 
 class AlphaZero(nn.Module):
-    """Input to forward is a concatenation of n (5, 6, 7) tensors where
-    first layer represents empty cells, second represents player 1,
-    second layer represents player -1,
-    and third and fourth layers are either 1s or 0s depending on current player."""
+    """Input to forward is a concatenation of n (3, 6, 7) tensors where
+    first layer represents current player, second represents other player,
+    and last layer is empty cells."""
 
     MODEL_PATH = '/home/anton/skola/egen/pytorch/connect4_alphaZero/models/'
 
@@ -56,22 +55,23 @@ class AlphaZero(nn.Module):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
         self.noise_ratio = 0.25
-        alpha = 1
+        alpha = 1.3
         self.dirichlet = torch.distributions.dirichlet.Dirichlet(
             torch.ones((1, 7))*alpha
         )
 
-        self.body_channels = 2
-        self.policy_channels = 1
-        self.hidden_nodes = 32
+        self.initial_channels = 5
+        self.body_channels = 4
+        self.policy_channels = 3
+        self.hidden_nodes = 42
 
-        self.number_of_residual_blocks = 1
-        self.dropout_rate = 0.2
+        self.number_of_residual_blocks = 5
+        self.dropout_rate = 0.25
 
         self.initial_block = nn.Sequential(
-            ConvBlock(3, self.body_channels, self.device),
+            ConvBlock(2, self.initial_channels, self.device),
             nn.ReLU(),
-            ConvBlock(self.body_channels, self.body_channels, self.device, padding=0),
+            ConvBlock(self.initial_channels, self.body_channels, self.device, padding=0),
             nn.ReLU()
         )
 
@@ -97,8 +97,7 @@ class AlphaZero(nn.Module):
             nn.ReLU(),
             nn.Flatten(),
             nn.Linear(7*6, self.hidden_nodes, device=self.device),
-            nn.Linear(self.hidden_nodes, 1, device=self.device),
-            nn.Tanh()
+            nn.Linear(self.hidden_nodes, 1, device=self.device)
         )
 
     def forward(self, boards: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
@@ -111,6 +110,7 @@ class AlphaZero(nn.Module):
         policies = self.policy_head.forward(body)
 
         evaluation = self.value_head.forward(body)
+        evaluation = torch.tanh(0.6*evaluation)
         return evaluation, policies
 
     def add_noise(self, policy: torch.Tensor):
@@ -120,14 +120,12 @@ class AlphaZero(nn.Module):
     def state2tensor(self, game_state: Connect4GameState) -> torch.Tensor:
         np_board = torch.from_numpy(game_state.board).to(self.device)
         ones = torch.ones((6, 7)).to(self.device)
-        zeros = torch.zeros((6, 7)).to(self.device)
 
         # ändra till två (eller tre) lager
-        input = torch.empty((1, 3, 6, 7), device=self.device)
+        input = torch.empty((1, 2, 6, 7), device=self.device)
         current_player = game_state.player
         input[0][0] = (np_board == current_player*ones).float()
         input[0][1] = (np_board == -current_player*ones).float()
-        input[0][2] = (np_board == zeros).float()
         return input
 
     def load_model(self, file: Optional[str] = None):
