@@ -12,14 +12,14 @@ from GameSimulator import GameSimulator
 LOAD_MODEL = False
 SAVE_MODEL = True
 
-LEARNING_RATE = 0.1
+LEARNING_RATE = 0.2
 MOMENTUM = 0.05
 WEIGHT_DECAY = 0.01
 
-N_GAMES = 2_500
+N_GAMES = 3_000
 BATCH_SIZE = 6
 
-SIMULATIONS = 250
+SIMULATIONS = 300
 EXPLORATION_RATE = 4
 
 LOAD_MODEL_NAME = 'AlphaZero2023-07-28 16:35.pth'
@@ -36,9 +36,6 @@ class Trainer:
         torch.manual_seed(42)
         self.running_loss = 0.0
         self.running_mse_loss = 0.0
-
-        # [boards, results, visits, game_lengths]
-        self.initial_data: list[torch.Tensor]
 
     def create_training_tools(self, load_file: Optional[str] = None) -> TrainingTools:
         model = self.create_model(load_file)

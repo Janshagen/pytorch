@@ -55,21 +55,21 @@ class AlphaZero(nn.Module):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
         self.noise_ratio = 0.25
-        alpha = 1.3
+        alpha = 1.5
         self.dirichlet = torch.distributions.dirichlet.Dirichlet(
             torch.ones((1, 7))*alpha
         )
 
-        self.initial_channels = 5
-        self.body_channels = 4
-        self.policy_channels = 3
+        self.initial_channels = 6
+        self.body_channels = 3
+        self.policy_channels = 2
         self.hidden_nodes = 42
 
-        self.number_of_residual_blocks = 5
+        self.number_of_residual_blocks = 4
         self.dropout_rate = 0.25
 
         self.initial_block = nn.Sequential(
-            ConvBlock(2, self.initial_channels, self.device),
+            ConvBlock(3, self.initial_channels, self.device),
             nn.ReLU(),
             ConvBlock(self.initial_channels, self.body_channels, self.device, padding=0),
             nn.ReLU()
@@ -120,12 +120,14 @@ class AlphaZero(nn.Module):
     def state2tensor(self, game_state: Connect4GameState) -> torch.Tensor:
         np_board = torch.from_numpy(game_state.board).to(self.device)
         ones = torch.ones((6, 7)).to(self.device)
+        zeros = torch.zeros((6, 7)).to(self.device)
 
         # ändra till två (eller tre) lager
-        input = torch.empty((1, 2, 6, 7), device=self.device)
+        input = torch.empty((1, 3, 6, 7), device=self.device)
         current_player = game_state.player
         input[0][0] = (np_board == current_player*ones).float()
         input[0][1] = (np_board == -current_player*ones).float()
+        input[0][2] = (np_board == zeros).float()
         return input
 
     def load_model(self, file: Optional[str] = None):

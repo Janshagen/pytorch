@@ -1,5 +1,6 @@
 import random
 import time
+from typing import Optional
 
 import numpy as np
 import torch
@@ -9,7 +10,7 @@ from Connect4Model import AlphaZero
 
 
 class MCTS:
-    def __init__(self, model: AlphaZero, exploration_rate: float,
+    def __init__(self, model: Optional[AlphaZero], exploration_rate: float,
                  sim_time: float = np.inf, sim_number: int = 1_000_000,
                  verbose: bool = False) -> None:
 
@@ -26,11 +27,11 @@ class MCTS:
     def find_move(self, game_state: Connect4GameState) -> int:
         self.root = Node(game_state)
 
-        # start_time = time.process_time()
+        start_time = time.process_time()
         for _ in range(self.sim_number):
-            # if self.maximum_time_exceeded(start_time):
-            #     self.print_data_if_verbose()
-            #     return self.root.choose_move()
+            if self.maximum_time_exceeded(start_time):
+                self.print_data_if_verbose()
+                return self.root.choose_move()
 
             current = self.traverse_tree()
 
@@ -59,12 +60,17 @@ class MCTS:
         return current
 
     def expand_tree(self, current: Node) -> Node:
-        evaluation, policy = self.evaluate_board(current)
+        if self.model is not None:
+            evaluation, policy = self.evaluate_board(current)
 
-        current.make_children(policy[0])
-        current.evaluation = evaluation.item()
-        if not current.has_children():
-            current.evaluation = - abs(current.game_state.get_status())
+            current.make_children(policy[0])
+            current.evaluation = evaluation.item()
+            if not current.has_children():
+                current.evaluation = - abs(current.game_state.get_status())
+
+        else:
+            current.make_children(torch.ones(7))
+            current.evaluation = self.rollout(current)
         return current
 
     def evaluate_board(self, current: Node) -> tuple[torch.Tensor, torch.Tensor]:
@@ -118,8 +124,8 @@ class MCTS:
     def rollout(self, current: Node):
         state = current.game_state.copy()
         while True:
+            if state.game_over():
+                return state.get_status() * current.game_state.player
+
             moves = state.available_moves()
             state.make_move(random.choice(moves))
-
-            if state.game_over():
-                return state.get_status()

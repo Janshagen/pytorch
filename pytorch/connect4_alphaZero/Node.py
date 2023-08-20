@@ -1,4 +1,4 @@
-# import random
+import random
 import re
 from typing import Optional
 
@@ -37,7 +37,7 @@ class Node:
 
             child = Node(state, move, prior, parent=self)
             self.children.append(child)
-        # random.shuffle(self.children)
+        random.shuffle(self.children)
 
     def select_child(self, C: float) -> 'Node':
         if not self.has_children():

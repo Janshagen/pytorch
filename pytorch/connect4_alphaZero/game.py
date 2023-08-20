@@ -2,6 +2,7 @@ from MCTS import MCTS
 from GameRules import Connect4GameState
 from Connect4Model import AlphaZero
 from interface import InterfaceConnect4
+from typing import Optional
 
 
 # Configurations
@@ -16,7 +17,7 @@ def main() -> None:
     simulations = interface.choose_config(SIMULATIONS)
 
     game_state = Connect4GameState.new_game(starting_player=1)
-    model = AlphaZero().load_model("AlphaZero2023-08-16 02:37.pth")
+    model = AlphaZero().load_model("AlphaZero2023-08-18 13:53.pth")
     model.eval()
 
     mcts = MCTS(model, EXPLORATION_RATE, sim_number=simulations, verbose=True)
@@ -54,10 +55,11 @@ def game(mcts: MCTS, game_state: Connect4GameState, interface: InterfaceConnect4
             return game_state.get_status()
 
 
-def print_data(game_state: Connect4GameState, model: AlphaZero) -> None:
-    torch_board = model.state2tensor(game_state)
-    print(f"Evaluation after move: {model(torch_board)[0][0][0].item():.4f}")
-    print(" ")
+def print_data(game_state: Connect4GameState, model: Optional[AlphaZero]) -> None:
+    if model is not None:
+        torch_board = model.state2tensor(game_state)
+        print(f"Evaluation after move: {model(torch_board)[0][0][0].item():.4f}")
+        print(" ")
 
 
 if __name__ == '__main__':
