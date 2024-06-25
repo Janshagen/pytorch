@@ -1,0 +1,31 @@
+{
+    "python.analysis.typeCheckingMode": "basic",
+    "cSpell.words": [
+        "blit",
+        "cmap",
+        "dtype",
+        "endboard",
+        "fivedim",
+        "gamestate",
+        "imshow",
+        "KEYDOWN",
+        "MOUSEBUTTONDOWN",
+        "optim",
+        "PUCT",
+        "rollouts",
+        "tensorboard",
+        "torchvision",
+        "unsqueeze",
+        "vinstprocent",
+        "Yatzy"
+    ],
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.autopep8"
+    },
+    "python.formatting.provider": "autopep8",
+    "python.formatting.autopep8Args": [
+        "--max-line-length",
+        "99",
+        "--experimental"
+    ],
+}

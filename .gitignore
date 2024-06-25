@@ -3,11 +3,7 @@ __pycache__
 .venv
 */.venv
 *.zip
-MNIST
-photos
 *.pdf
 */env
 env
-photos.py
-test.py
 *TODO

@@ -1,0 +1,8 @@
+{
+    "name": "Python: Profile",
+    "type": "python",
+    "request": "launch",
+    "program": "${file}",
+    "args": ["-m", "line_profiler", "${fileBaseName}.lprof"]
+}
+
